@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "BlackBox Options Monitor",
+  "version": "1.0",
+  "description": "监听BlackBox Options页面并截图",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://members.blackboxstocks.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://members.blackboxstocks.com/options"],
+      "js": ["mqtt.js", "content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_title": "BlackBox Options Monitor"
+  }
+} 

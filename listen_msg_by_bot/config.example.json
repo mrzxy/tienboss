@@ -1,0 +1,29 @@
+{
+    "discord": {
+        "bot_tokens": {
+            "test": "",
+            "production": ""
+        },
+        "proxy": {
+            "enabled": false,
+            "url": "http://127.0.0.1:7890"
+        }
+    },
+    "anthropic": {
+        "api_key": ""
+    },
+    "mqtt": {
+        "auto_reconnect": true,
+        "max_reconnect_attempts": 5,
+        "reconnect_delay": 3
+    },
+   
+    "app": {
+        "environment": "test"
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(levelname)s - %(message)s",
+        "date_format": "%Y-%m-%d %H:%M:%S"
+    }
+}
