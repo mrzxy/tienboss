@@ -169,7 +169,7 @@ async def on_message(message):
 
     # if 'real-time-news' in message.channel.name:
     #     msg['channel'] = 'real-time-news'
-    if 'alerts-windows' in message.channel.name and ( message.author.name == 'dk_149' or message.author.name == 'qiyu_31338'):
+    if 'alerts-window' in message.channel.name and ( message.author.name == 'dk_149' or message.author.name == 'qiyu_31338'):
         logger.info(f'来自: {message.author.name}')
         # test
         msg['webhook_url'] = 'https://discord.com/api/webhooks/1410512538860519499/CR8XEA-Z2OsLgxCAA6dAj0aNlTWaAIKH5fiVXM6_sLMSyogH2o8LXQ2E1FgFMGwGmMW3'
@@ -197,6 +197,13 @@ async def on_message(message):
 if __name__ == '__main__':
     # 运行机器人
     try:
+        r = send_chat_request_by_Heisen('''Wow exactly like the first day of trading like last September.
+
+Gonna big a massive gap down open today.
+
+Fam, do we buy this dip today?''')
+        print(r)
+        exit()
         # 连接MQTT
         if client.connect():
             logger.info("MQTT连接成功")
