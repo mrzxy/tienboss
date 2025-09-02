@@ -197,13 +197,7 @@ async def on_message(message):
 if __name__ == '__main__':
     # 运行机器人
     try:
-        r = send_chat_request_by_Heisen('''Wow exactly like the first day of trading like last September.
 
-Gonna big a massive gap down open today.
-
-Fam, do we buy this dip today?''')
-        print(r)
-        exit()
         # 连接MQTT
         if client.connect():
             logger.info("MQTT连接成功")
