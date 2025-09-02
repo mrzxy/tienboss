@@ -121,6 +121,9 @@ def send_chat_request_by_Heisen(content):
         
         if response.status_code == 200:
             result = response.json()
+            if 'content' not in result or len(result["content"]) == 0:
+                logger.error(f"Anthropic HTTP请求返回内容为空: {response.status_code}, {response.text}")
+                return None
             text = result["content"][0]["text"]
             logger.info(f"Anthropic HTTP请求成功，返回长度: {len(text)}")
             return text
