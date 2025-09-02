@@ -96,27 +96,44 @@ def send_chat_request_by_Heisen(content):
         api_key = app_config.get_anthropic_api_key()
         if not api_key:
             raise ValueError("Anthropic API key未配置")
-        
-        anthropic = Anthropic(api_key=api_key)
 
         tip = "请你扮演一个专业的华尔街基金经理，把我给你的内容先整理一下，然后用地道中文表达出来。不要增加段落和格式，直接一段话表达。每个股票代码前面加上$符号。如果要翻译的内容里面有Heisenberg，那么直接忽略这个。如果有和股票不相关的内容，直接空白处理。"
 
-        message = content
-
-        response = anthropic.messages.create(
-            model="claude-opus-4-1-20250805",
-            system=[{ "type": "text", "text": tip }],
-            messages=[
-              {"role": "user", "content": message}
+        # 构建HTTP请求
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": "claude-opus-4-1-20250805",  # 使用标准模型名称
+            "system": tip,
+            "messages": [
+                {"role": "user", "content": content}
             ],
-            max_tokens=20000,
-            stream=False
-        )
-        text = response.content[0].text
-        # 使用正则表达式提取translation内容
-      
-        return text
+            "max_tokens": 20000
+        }
 
+        # 发送HTTP请求
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            text = result["content"][0]["text"]
+            logger.info(f"Anthropic HTTP请求成功，返回长度: {len(text)}")
+            return text
+        else:
+            logger.error(f"Anthropic HTTP请求失败: {response.status_code}, {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("Anthropic请求超时")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Anthropic HTTP请求异常: {e}")
+        return None
     except Exception as e:
         logger.error(f"Anthropic请求失败: {e}")
         return None
