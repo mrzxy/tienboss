@@ -101,7 +101,7 @@ async def process_message_queue():
                 # 如果chat返回了结果，可以在这里处理
                 if result:
                    
-                    await send_msg_by_webhook(result)
+                    await send_msg_by_webhook(result, "https://discord.com/api/webhooks/1386580439451435068/nQa_K4i0GGUo0ksQ_ftWuPkaz0Q4HDv6YBve1fjf0rNv9m-R5Q2ufwZURQN1I3cthLGB")
             # 标记任务完成
             message_queue.task_done()
             
@@ -167,9 +167,9 @@ async def on_message(message):
     msg['images'] = images
     
 
-    if 'real-time-news' in message.channel.name:
-        msg['channel'] = 'real-time-news'
-    elif 'alerts-windows' in message.channel.name and ( message.author.name == 'dk_149' or message.author.name == 'qiyu_31338'):
+    # if 'real-time-news' in message.channel.name:
+    #     msg['channel'] = 'real-time-news'
+    if 'alerts-windows' in message.channel.name and ( message.author.name == 'dk_149' or message.author.name == 'qiyu_31338'):
         logger.info(f'来自: {message.author.name}')
         # test
         msg['webhook_url'] = 'https://discord.com/api/webhooks/1410512538860519499/CR8XEA-Z2OsLgxCAA6dAj0aNlTWaAIKH5fiVXM6_sLMSyogH2o8LXQ2E1FgFMGwGmMW3'
