@@ -177,7 +177,7 @@ async def on_message(message):
             msg['webhook_url'] = 'https://discord.com/api/webhooks/1387993663837310996/Kuov6iYyG8nRaHzHjCaZcVbxlRvNQ82WwoXncU9i_e9sfQxuosgAgX919R22mDNMQQqO'
     # elif 'trade-alerts' in message.channel.name:
     #     msg['webhook_url'] = 'https://discord.com/api/webhooks/1382589146157289483/7Wds1Kt90n3qrsoMa_zAniHr1vd-Vr6wW3e6JzpHtvi7kBmj_9wFy8Jt3cV2CfZ-_Jc7'
-    elif 'heisenberg' in message.channel.name:
+    elif 'heisen' in message.channel.name:
         msg['topic'] = 'lis-msg/jasonwood'
         msg['channel'] = 'craig-comments'
         if debug:
