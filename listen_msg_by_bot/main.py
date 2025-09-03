@@ -187,6 +187,7 @@ async def on_message(message):
         if content:
             images = extract_image_urls(message.content)
             if len(images) > 0:
+                logger.info(f"提取到的图片: {len(images)}")
                 for image in images:
                     content = content + f"[.]({image})"
 
