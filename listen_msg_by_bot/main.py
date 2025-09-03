@@ -191,7 +191,8 @@ async def on_message(message):
                 for image in images:
                     content = content + f"[.]({image})"
 
-        msg['message'] = content
+
+        msg['content'] = content
 
     else:
         return
