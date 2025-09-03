@@ -3,7 +3,7 @@ from discord.ext import commands
 import asyncio
 import logging
 from datetime import datetime
-from chat import send_chat_request, send_msg_by_webhook, send_chat_request_by_Heisen, send_msg_by_mqtt
+from chat import send_chat_request, send_msg_by_webhook, send_chat_request_by_Heisen, send_msg_by_mqtt, extract_image_urls
 from config import get_config
 
 # 加载配置
@@ -83,15 +83,10 @@ async def process_message_queue():
             if 'webhook_url' in message:
                 await send_msg_by_webhook(message['content'], message['webhook_url'])
                 continue
-            elif 'wash_data' in message:
-                  # 调用chat处理函数
-                content = await asyncio.to_thread(send_chat_request_by_Heisen, message['content'])
-                
-                # 如果chat返回了结果，可以在这里处理
-                if content:
-                    content = content + "\n" + "\n".join(message['images'])
-                    result = await send_msg_by_mqtt(client,message['topic'],message['channel'],content)
-                    logger.info(f"MQTT消息发送结果: {result}")
+            elif 'mqtt' in message:
+
+                result = await send_msg_by_mqtt(client,message['topic'],message['channel'],message['content'])
+                logger.info(f"MQTT消息发送结果: {result}")
 
             else:
             
@@ -157,14 +152,14 @@ async def on_message(message):
     # 构建日志消息，包含文本和图片信息
     images = []
     
-    if message.attachments:
-        for i, attachment in enumerate(message.attachments):
-            if attachment.content_type and attachment.content_type.startswith('image/'):
-                logger.info(f"检测到图片附件 - ID: {attachment.id}, 文件名: {attachment.filename}, URL: {attachment.url}")
-                images.append(attachment.url)
+    # if message.attachments:
+    #     for i, attachment in enumerate(message.attachments):
+    #         if attachment.content_type and attachment.content_type.startswith('image/'):
+    #             logger.info(f"检测到图片附件 - ID: {attachment.id}, 文件名: {attachment.filename}, URL: {attachment.url}")
+    #             images.append(attachment.url)
             # else:
             #     log_parts.append(f'附件{i+1}: {attachment.filename} ({attachment.url})')
-    msg['images'] = images
+    # msg['images'] = images
     
 
     # if 'real-time-news' in message.channel.name:
@@ -180,9 +175,23 @@ async def on_message(message):
     elif 'heisen' in message.channel.name:
         msg['topic'] = 'lis-msg/jasonwood'
         msg['channel'] = 'craig-comments'
+        msg['mqtt'] = True
         if debug:
             msg['topic'] = 'lis-msg/qiyu'
-        msg['wash_data'] = True
+
+
+        # content = message.content
+        content = await asyncio.to_thread(send_chat_request_by_Heisen, message.content)
+        
+        # 如果chat返回了结果，可以在这里处理
+        if content:
+            images = extract_image_urls(message.content)
+            if len(images) > 0:
+                for image in images:
+                    content = content + f"[.]({image})"
+
+        msg['message'] = content
+
     else:
         return
 

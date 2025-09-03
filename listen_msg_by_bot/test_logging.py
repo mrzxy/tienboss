@@ -6,6 +6,7 @@
 
 from config import get_config
 import logging
+from chat import extract_image_urls
 
 def test_logging():
     """测试日志配置和输出"""
@@ -46,5 +47,27 @@ def test_logging():
     
     print("\n✅ 日志测试完成！如果您看到了上面的时间戳格式的日志输出，说明日志系统工作正常。")
 
+
+def test_extract_image_urls():
+    """验证 extract_image_urls 的多种匹配与去重逻辑"""
+    text = (
+        "这里有Markdown图片: ![logo](https://example.com/a.png)\n"
+        "这里有HTML图片: <img src=\"https://cdn.example.com/b.jpeg?x=1#y\">\n"
+        "这里有裸链: https://img.example.com/c.webp\n"
+        "这里有非图片链接: https://example.com/page.html\n"
+        "重复一次: https://img.example.com/c.webp\n"
+    )
+
+    expected = [
+        "https://example.com/a.png",
+        "https://cdn.example.com/b.jpeg?x=1#y",
+        "https://img.example.com/c.webp",
+    ]
+
+    result = extract_image_urls(text)
+    print("提取结果:", result)
+    assert result == expected, f"提取结果不符合预期: {result} != {expected}"
+    print("\n✅ extract_image_urls 测试通过！")
+
 if __name__ == "__main__":
-    test_logging()
+    test_extract_image_urls()

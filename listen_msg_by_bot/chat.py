@@ -60,6 +60,47 @@ tip = """
 现在开始，你将持续接收消息文本（英文原文），逐条按照上述标准进行分析并返回结果。
 """
 
+def extract_image_urls(text: str) -> List[str]:
+    """从文本中提取所有图片链接，支持http/https、Markdown、HTML<img>。
+
+    规则：
+    - 匹配以 .png/.jpg/.jpeg/.gif/.webp/.bmp/.svg 结尾的链接，允许带查询参数或fragment。
+    - 抽取Markdown: ![alt](url)
+    - 抽取HTML: <img src="url">（仅提取符合图片后缀的链接）
+    - 返回去重且保持首次出现顺序的列表。
+    """
+    if not text:
+        return []
+
+    image_ext_pattern = r"(?:png|jpe?g|gif|webp|bmp|svg)"
+
+    # 1) 直接URL匹配（包含查询/fragment）
+    url_pattern = rf"https?://[^\s)>'\"]+\.(?:{image_ext_pattern})(?:[?#][^\s)>'\"]*)?"
+
+    # 2) Markdown: ![alt](url)
+    md_img_pattern = rf"!\[[^\]]*\]\((https?://[^\s)>'\"]+\.(?:{image_ext_pattern})(?:[?#][^\s)>'\"]*)?)\)"
+
+    # 3) HTML: <img src="url">
+    html_img_pattern = rf"<img[^>]*?\bsrc=[\"'](https?://[^\s\"'>]+\.(?:{image_ext_pattern})(?:[?#][^\s\"'>]*)?)[\"'][^>]*>"
+
+    candidates: List[str] = []
+
+    # 先找markdown与html中的URL，再找裸露URL，避免重复
+    for pat in (md_img_pattern, html_img_pattern, url_pattern):
+        for match in re.findall(pat, text, flags=re.IGNORECASE):
+            url = match if isinstance(match, str) else match[0]
+            candidates.append(url)
+
+    # 去重且保持顺序
+    seen = set()
+    result: List[str] = []
+    for url in candidates:
+        if url not in seen:
+            seen.add(url)
+            result.append(url)
+
+    return result
+
 def send_chat_request(content):
     try:
         # 从配置文件获取API key
@@ -122,7 +163,7 @@ def send_chat_request_by_Heisen(content):
         if response.status_code == 200:
             result = response.json()
             if 'content' not in result or len(result["content"]) == 0:
-                logger.error(f"Anthropic HTTP请求返回内容为空: {response.status_code}, {response.text}")
+                logger.error(f"Anthropic HTTP请求返回内容为空: {response.status_code}, {response.text}, 原内容: {content}")
                 return None
             text = result["content"][0]["text"]
             logger.info(f"Anthropic HTTP请求成功，返回长度: {len(text)}")
