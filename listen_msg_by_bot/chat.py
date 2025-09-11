@@ -203,12 +203,15 @@ async def send_msg_by_webhook(msg, webhook):
         logger.error(f"发送消息时出错: {e}")
         return False
 
-async def send_msg_by_mqtt(client, topic, channel, msg):
+async def send_msg_by_mqtt(client, topic, channel, msg, other=None):
     try:
         message_data = {
             "channel": channel,
             "content": msg
         }
+        if other is not None:
+            message_data.update(other)
+
         success = client.publish(topic, json.dumps(message_data))
         return success
     except Exception as e:

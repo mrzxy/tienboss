@@ -83,9 +83,12 @@ async def process_message_queue():
             if 'webhook_url' in message:
                 await send_msg_by_webhook(message['content'], message['webhook_url'])
                 continue
-            elif 'mqtt' in message:
 
-                result = await send_msg_by_mqtt(client,message['topic'],message['channel'],message['content'])
+            elif 'mqtt' in message:
+                other = None
+                if 'other' in message:
+                    other = message['other']
+                result = await send_msg_by_mqtt(client,message['topic'],message['channel'],message['content'], other)
                 logger.info(f"MQTT消息发送结果: {result}")
 
             else:
@@ -193,6 +196,39 @@ async def on_message(message):
 
 
         msg['content'] = content
+    elif 'tt3' in message.channel.name:
+        if not debug:
+            if 'TT3' not in message.author.name:
+                return
+
+        msg['topic'] = 'lis-msg/craig'
+        msg['channel'] = 'diamond-only-stock'
+        msg['mqtt'] = True
+        if debug:
+            msg['topic'] = 'lis-msg/qiyu'
+
+        if len(message.embeds) > 0:
+            embeds = []
+            for embed in message.embeds:
+                embeds.append({
+                    "description": embed.description,
+                })
+            embeds = embeds[::-1]
+            msg['other'] = {
+                "embeds": embeds
+            }
+
+            images = extract_image_urls(message.content)
+            if len(images) > 0:
+                tmpContent = ""
+                for image in images:
+                    tmpContent = tmpContent + f"[.]({image})"
+                embeds[len(embeds)-1]['description'] = embeds[len(embeds)-1]['description'] + tmpContent
+
+
+            msg['content'] = ''
+        else:
+            msg['content'] = message.content
 
     else:
         return
