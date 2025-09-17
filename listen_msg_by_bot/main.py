@@ -68,7 +68,7 @@ def on_connect(client, userdata, flags, rc):
 client.set_connection_callback(on_connect)
 
 # 定时同步历史消息任务
-@tasks.loop(seconds=10)  # 每10秒执行一次，你可以根据需要调整时间间隔
+@tasks.loop(seconds=600)  # 每10秒执行一次，你可以根据需要调整时间间隔
 async def scheduled_sync_history():
     """定时同步历史消息"""
     try:

@@ -8,7 +8,7 @@
             "enabled": false,
             "url": "http://127.0.0.1:7890"
         },
-        "sync_hisory": {
+        "sync_history": {
             "channel_id": ""
         }
     },
