@@ -106,6 +106,13 @@ class Config:
     def get_allowed_users(self) -> list:
         """获取允许的用户列表"""
         return self.get('users.allowed_users', [])
+
+    def get_sync_channel_id(self) -> str:
+        channel_id = self.get('discord.sync_history.channel_id', '')
+        try:
+            return int(channel_id)
+        except (ValueError, TypeError):
+            return 0
     
     def get_proxy_url(self) -> Optional[str]:
         """获取代理URL"""

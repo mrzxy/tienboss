@@ -7,6 +7,9 @@
         "proxy": {
             "enabled": false,
             "url": "http://127.0.0.1:7890"
+        },
+        "sync_hisory": {
+            "channel_id": ""
         }
     },
     "anthropic": {

@@ -1,14 +1,15 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import asyncio
 import logging
-from datetime import datetime
+import datetime
+import json
 from chat import send_chat_request, send_msg_by_webhook, send_chat_request_by_Heisen, send_msg_by_mqtt, extract_image_urls
 from config import get_config
-
+from dc_history import sync_history
+from t3_channel import process_t3, update_tt3_db
 # 加载配置
 app_config = get_config()
-
 # 验证配置
 if not app_config.validate_config():
     raise RuntimeError("配置文件验证失败，请检查配置文件")
@@ -65,6 +66,23 @@ def on_connect(client, userdata, flags, rc):
     logger.info("mqtt连接成功回调被调用")
 
 client.set_connection_callback(on_connect)
+
+# 定时同步历史消息任务
+@tasks.loop(seconds=10)  # 每10秒执行一次，你可以根据需要调整时间间隔
+async def scheduled_sync_history():
+    """定时同步历史消息"""
+    try:
+        logger.info("开始定时同步历史消息...")
+        await sync_history(bot)
+        logger.info("定时同步历史消息完成")
+    except Exception as e:
+        logger.error(f"定时同步历史消息失败: {e}")
+
+@scheduled_sync_history.before_loop
+async def before_scheduled_sync():
+    """等待bot准备就绪"""
+    await bot.wait_until_ready()
+    logger.info("定时同步任务已准备就绪")
     
 
 
@@ -137,6 +155,16 @@ async def on_ready():
         logger.warning('- Read Messages/View Channels')
         logger.warning('- Send Messages')
         logger.warning('- Read Message History')
+    
+    # 启动定时同步任务
+    if not scheduled_sync_history.is_running():
+        scheduled_sync_history.start()
+        logger.info("定时同步历史消息任务已启动（每10秒执行一次）")
+    
+    # 立即执行一次同步
+    await sync_history(bot)
+    
+    
 
 
 @bot.event
@@ -197,39 +225,10 @@ async def on_message(message):
 
         msg['content'] = content
     elif 'tt3' in message.channel.name:
-        if not debug:
-            if 'TT3' not in message.author.name:
-                return
-
-        msg['topic'] = 'lis-msg/craig'
-        msg['channel'] = 'diamond-only-stock'
-        msg['mqtt'] = True
-        if debug:
-            msg['topic'] = 'lis-msg/qiyu'
-
-        if len(message.embeds) > 0:
-            embeds = []
-            for embed in message.embeds:
-                embeds.append({
-                    "description": embed.description,
-                })
-            embeds = embeds[::-1]
-            msg['other'] = {
-                "embeds": embeds
-            }
-
-            images = extract_image_urls(message.content)
-            if len(images) > 0:
-                tmpContent = ""
-                for image in images:
-                    tmpContent = tmpContent + f"[.]({image})"
-                embeds[len(embeds)-1]['description'] = embeds[len(embeds)-1]['description'] + tmpContent
-
-
-            msg['content'] = ''
-        else:
-            msg['content'] = message.content
-
+        msg = process_t3(message)
+    elif 'diamond-only-stock' in message.channel.name:
+        update_tt3_db(message)
+        return
     else:
         return
 
@@ -260,5 +259,15 @@ if __name__ == '__main__':
         bot.run(app_key)
 
         
+    except KeyboardInterrupt:
+        logger.info("收到中断信号，正在关闭...")
+        # 停止定时任务
+        if scheduled_sync_history.is_running():
+            scheduled_sync_history.cancel()
+            logger.info("定时同步任务已停止")
     except Exception as e:
         logger.error(f"机器人启动失败: {e}")
+    finally:
+        # 确保定时任务被停止
+        if scheduled_sync_history.is_running():
+            scheduled_sync_history.cancel()
