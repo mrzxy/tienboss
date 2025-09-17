@@ -34,8 +34,8 @@ def process_t3(message):
             
             msg['other']['reply_msg_id'] = reply_msg_id
             send_content = message.embeds[0].description
-    # elif 'Repling' in message.content:
-
+    elif len(message.embeds) == 1:
+        send_content =  message.embeds[0].description
     else:
         send_content = message.content
 
@@ -44,7 +44,6 @@ def process_t3(message):
             send_content = send_content + f"[.]({image})"
 
     msg['content'] = send_content
-
 
     return msg
 def update_tt3_db(message):
