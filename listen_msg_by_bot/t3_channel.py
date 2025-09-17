@@ -16,7 +16,7 @@ def process_t3(message):
     print("process_t3")
 
     msg['topic'] = 'lis-msg/craig'
-    msg['channel'] = 'diamond-only-stock'
+    msg['channel'] = 'craig-diamond-hands'
     msg['mqtt'] = True
     msg['other'] = {}
     if debug:
@@ -34,6 +34,8 @@ def process_t3(message):
             
             msg['other']['reply_msg_id'] = reply_msg_id
             send_content = message.embeds[0].description
+    # elif 'Repling' in message.content:
+
     else:
         send_content = message.content
 
