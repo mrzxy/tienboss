@@ -100,6 +100,8 @@ async def process_message_queue():
 
             if 'webhook_url' in message:
                 await send_msg_by_webhook(message['content'], message['webhook_url'])
+                if 'webhook_url2' in message:
+                    await send_msg_by_webhook(message['content'], message['webhook_url2'])
                 continue
 
             elif 'mqtt' in message:
@@ -199,8 +201,10 @@ async def on_message(message):
         logger.info(f'来自: {message.author.name}')
         # test
         msg['webhook_url'] = 'https://discord.com/api/webhooks/1410512538860519499/CR8XEA-Z2OsLgxCAA6dAj0aNlTWaAIKH5fiVXM6_sLMSyogH2o8LXQ2E1FgFMGwGmMW3'
+        msg['webhook_url2'] = 'https://discord.com/api/webhooks/1417517906161434776/zB62fu_aVed1mcaS_YflbzOi4-QIQu4HScA2reS9iTEq8t0NghOuzOCzK5DbMNLxHo_D'
         if debug:
             msg['webhook_url'] = 'https://discord.com/api/webhooks/1387993663837310996/Kuov6iYyG8nRaHzHjCaZcVbxlRvNQ82WwoXncU9i_e9sfQxuosgAgX919R22mDNMQQqO'
+            msg['webhook_url2'] = 'https://discord.com/api/webhooks/1387993663837310996/Kuov6iYyG8nRaHzHjCaZcVbxlRvNQ82WwoXncU9i_e9sfQxuosgAgX919R22mDNMQQqO'
     # elif 'trade-alerts' in message.channel.name:
     #     msg['webhook_url'] = 'https://discord.com/api/webhooks/1382589146157289483/7Wds1Kt90n3qrsoMa_zAniHr1vd-Vr6wW3e6JzpHtvi7kBmj_9wFy8Jt3cV2CfZ-_Jc7'
     elif 'heisen' in message.channel.name:
