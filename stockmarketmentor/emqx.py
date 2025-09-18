@@ -167,16 +167,23 @@ class MQTTClient:
         return False
     
     def _start_reconnect(self):
-        """开始重连过程"""
+        """开始重连过程 - 优化版本，减少线程使用"""
         if self.state == ConnectionState.RECONNECTING:
             return
         
         self.state = ConnectionState.RECONNECTING
         self.stop_reconnect.clear()
         
+        # 检查是否已有重连线程在运行
         if self.reconnect_thread and self.reconnect_thread.is_alive():
             return
         
+        # 限制重连线程的创建
+        if self.reconnect_attempts >= self.config.max_reconnect_attempts:
+            logger.error("已达到最大重连次数，停止重连")
+            self.state = ConnectionState.ERROR
+            return
+            
         self.reconnect_thread = threading.Thread(target=self._reconnect_loop, daemon=True)
         self.reconnect_thread.start()
     
@@ -203,23 +210,31 @@ class MQTTClient:
                 if self.stop_reconnect.wait(delay):
                     break
                 
-                with self.connection_lock:
-                    if self.client:
-                        self.client.disconnect()
-                        time.sleep(1)
-                        
-                        result = self.client.connect(
-                            self.config.broker, 
-                            self.config.port, 
-                            self.config.keepalive
-                        )
-                        
-                        if result == mqtt.MQTT_ERR_SUCCESS:
-                            self.client.loop_start()
-                            logger.info("重连成功")
-                            return
-                        else:
-                            logger.error(f"重连失败，错误码: {result}")
+                # 减少锁的使用时间，避免长时间阻塞
+                try:
+                    with self.connection_lock:
+                        if self.client:
+                            self.client.disconnect()
+                    
+                    # 在锁外等待，避免阻塞其他操作
+                    time.sleep(1)
+                    
+                    with self.connection_lock:
+                        if self.client:
+                            result = self.client.connect(
+                                self.config.broker, 
+                                self.config.port, 
+                                self.config.keepalive
+                            )
+                            
+                            if result == mqtt.MQTT_ERR_SUCCESS:
+                                self.client.loop_start()
+                                logger.info("重连成功")
+                                return
+                            else:
+                                logger.error(f"重连失败，错误码: {result}")
+                except Exception as lock_error:
+                    logger.error(f"重连过程中锁操作失败: {lock_error}")
                             
             except Exception as e:
                 logger.error(f"重连过程中出错: {e}")

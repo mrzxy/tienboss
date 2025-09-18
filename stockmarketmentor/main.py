@@ -3,6 +3,10 @@ import time
 import json
 import logging
 import re
+import psutil
+import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # 配置日志
 logging.basicConfig(
@@ -16,6 +20,56 @@ debug = False
 
 proxy_url = "http://D0BFA2CA:809AD5BFCDCB@tunpool-yu7bw.qg.net:11639"
 
+# 创建一个持久的session对象，复用连接
+session = requests.Session()
+
+# 配置重试策略
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=1, pool_maxsize=1)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
+# 设置代理
+session.proxies = {"http": proxy_url, "https": proxy_url}
+
+# 内存统计相关变量
+memory_stats_interval = 60  # 每60秒记录一次内存统计
+last_memory_stats_time = 0
+
+def log_memory_stats():
+    """记录内存使用统计信息"""
+    global last_memory_stats_time
+    
+    current_time = time.time()
+    
+    # 检查是否到了记录时间
+    if current_time - last_memory_stats_time < memory_stats_interval:
+        return
+    
+    try:
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        
+        # 获取详细的内存信息
+        rss_mb = memory_info.rss / 1024 / 1024  # 物理内存
+        vms_mb = memory_info.vms / 1024 / 1024  # 虚拟内存
+        
+        # 获取系统内存信息
+        system_memory = psutil.virtual_memory()
+        system_available_mb = system_memory.available / 1024 / 1024
+        system_usage_percent = system_memory.percent
+        
+        log.info(f"📊 内存统计 - 进程: RSS={rss_mb:.1f}MB, VMS={vms_mb:.1f}MB | 系统: 可用={system_available_mb:.0f}MB, 使用率={system_usage_percent:.1f}%")
+        
+        last_memory_stats_time = current_time
+        
+    except Exception as e:
+        log.info(f"获取内存统计失败: {e}")
+
 def get_posts(ts):
   url = f"https://stockmarketmentor.com/forum/api/services/PostsDAO.php?site=smm&params=[%22posts%22,%22all%22,null,%22conversation%22,{ts}]"
 
@@ -28,11 +82,22 @@ def get_posts(ts):
     'Cookie': 'PHPSESSID=t2ohrs60r7ifte17cp9lis838g'
   }
 
-  response = requests.request("GET", url, headers=headers, data=payload, proxies={"http": proxy_url, "https": proxy_url})
-  if response.status_code == 200:
-    return response.json()
-  else:
-    log.info(f"❌ 请求失败: {response.status_code} {response.text}")    
+  try:
+    # 使用session发送请求，设置超时时间
+    response = session.get(url, headers=headers, timeout=(10, 30))  # 连接超时10秒，读取超时30秒
+    if response.status_code == 200:
+      return response.json()
+    else:
+      log.info(f"❌ 请求失败: {response.status_code}")    
+      return None
+  except requests.exceptions.Timeout:
+    log.info("❌ 请求超时")
+    return None
+  except requests.exceptions.ConnectionError:
+    log.info("❌ 连接错误")
+    return None
+  except Exception as e:
+    log.info(f"❌ 请求异常: {e}")
     return None
 
 def on_connect(client, userdata, flags, rc):
@@ -73,20 +138,19 @@ def process_posts(client, posts):
         log.info("没有新的posts数据")
         return
     
-    # 更新last_ts为返回记录中最大的update_unix
-    update_unixes = []
+    # 更新last_ts为返回记录中最大的update_unix - 优化内存使用
+    max_update_unix = last_ts
     for post in posts:
         try:
             update_unix = int(post.get('update_unix', 0))
-            update_unixes.append(update_unix)
+            if update_unix > max_update_unix:
+                max_update_unix = update_unix
         except (ValueError, TypeError):
             continue
     
-    if update_unixes:
-        max_update_unix = max(update_unixes)
-        if max_update_unix > last_ts:
-            last_ts = max_update_unix
-            log.info(f"更新last_ts为: {last_ts}")
+    if max_update_unix > last_ts:
+        last_ts = max_update_unix
+        log.info(f"更新last_ts为: {last_ts}")
     
     # 处理每个post
     processed_count = 0
@@ -106,6 +170,9 @@ def process_posts(client, posts):
         processed_count += 1
     
     log.info(f"本次处理了 {processed_count} 条白名单用户消息")
+    
+    # 显式删除局部变量引用，帮助内存释放
+    del max_update_unix, processed_count
 
 def send_post_to_mqtt(client, post):
     """发送post到MQTT"""
@@ -127,6 +194,7 @@ def send_post_to_mqtt(client, post):
     if content == "":
       log.info(f"❌ 用户 {author} 的消息为空")
       return
+    
     # 替换特殊字符
     content = content.replace('~', '').replace('#', '')
     
@@ -145,13 +213,19 @@ def send_post_to_mqtt(client, post):
     
     try:
         # 发送MQTT消息
-        success = client.publish(mapping["topic"], json.dumps(message_data))
+        message_json = json.dumps(message_data)
+        success = client.publish(mapping["topic"], message_json)
         if success:
             log.info(f"✅ 已发送 {author} 的消息到 {mapping['topic']}")
         else:
             log.info(f"❌ 发送 {author} 的消息失败")
     except Exception as e:
         log.info(f"❌ 发送MQTT消息时出错: {e}")
+    finally:
+        # 清理局部变量
+        del author, content, message_data
+        if 'message_json' in locals():
+            del message_json
 
 def listen(client):
     """Posts监听主循环"""
@@ -160,6 +234,7 @@ def listen(client):
     log.info(f"🚀 开始监听Posts... (last_ts: {last_ts})")
     
     while True:
+        posts = None  # 初始化变量
         try:
             log.info(f"\n--- 请求Posts数据 (last_ts: {last_ts}) ---")
             
@@ -179,8 +254,11 @@ def listen(client):
             else:
                 log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
             
+            # 记录内存使用统计
+            log_memory_stats()
+            
             # 休息5秒
-            log.info("💤 等待10秒后继续监听...")
+            log.info("💤 等待5秒后继续监听...")
             time.sleep(5)
             
         except KeyboardInterrupt:
@@ -190,6 +268,10 @@ def listen(client):
             log.info(f"❌ 监听循环出错: {e}")
             log.info("等待5秒后重试...")
             time.sleep(5)
+        finally:
+            # 确保每次循环后清理posts变量
+            if posts is not None:
+                del posts
 
 
 if __name__ == "__main__":
@@ -200,11 +282,13 @@ if __name__ == "__main__":
     log.info(f"白名单用户: {', '.join(whitelist_users)}")
     log.info(f"初始时间戳: {last_ts}")
     
-    # 创建MQTT配置
+    # 创建MQTT配置 - 针对低配置主机优化
     config = MQTTConfig(
         auto_reconnect=True,
-        max_reconnect_attempts=5,
-        reconnect_delay=3
+        max_reconnect_attempts=3,  # 减少重连次数
+        reconnect_delay=5,         # 增加重连间隔
+        keepalive=120,             # 增加心跳间隔，减少网络开销
+        exponential_backoff=False  # 禁用指数退避，避免长时间等待
     )
     
     # 创建MQTT客户端
@@ -232,5 +316,9 @@ if __name__ == "__main__":
         traceback.print_exc()
     finally:
         log.info("🔌 断开MQTT连接...")
-        client.disconnect()
+        try:
+            client.disconnect()
+            session.close()  # 关闭HTTP session
+        except Exception as e:
+            log.info(f"清理资源时出错: {e}")
         log.info("👋 程序退出")
