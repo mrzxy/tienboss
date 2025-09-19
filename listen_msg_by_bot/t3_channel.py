@@ -40,10 +40,12 @@ def process_t3(message):
         send_content = message.content
 
     if len(images) > 0:
+        send_content = "" if send_content is None else send_content
         for image in images:
             send_content = send_content + f"[.]({image})"
 
     msg['content'] = send_content
+
 
     return msg
 def update_tt3_db(message):

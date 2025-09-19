@@ -8,6 +8,7 @@ from chat import send_chat_request, send_msg_by_webhook, send_chat_request_by_He
 from config import get_config
 from dc_history import sync_history
 from t3_channel import process_t3, update_tt3_db
+from helper import print_message_details
 # 加载配置
 app_config = get_config()
 # 验证配置
@@ -175,8 +176,12 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
+    print_message_details(message)
     # 确保处理命令（如果你有命令系统）
     await bot.process_commands(message)
+
+    # 完整打印 Discord Message 对象的所有成员
+
 
     msg = {
         "content": message.content,
@@ -230,6 +235,8 @@ async def on_message(message):
         msg['content'] = content
     elif 'tt3' in message.channel.name:
         msg = process_t3(message)
+        # 同时保存TT3消息到数据库
+        update_tt3_db(message)
     elif 'diamond-only-stock' in message.channel.name:
         update_tt3_db(message)
         return
