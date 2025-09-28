@@ -1,5 +1,11 @@
 
+import logging
+import re
+from re import L
+from config import get_config
+
 def print_message_details(message):
+    return None
     """完整打印 Discord Message 对象的所有成员"""
     print("=" * 80)
     print("DISCORD MESSAGE 完整信息:")
@@ -109,3 +115,51 @@ def print_message_details(message):
     
     print("=" * 80)
     print()
+
+def get_app_config():
+    # 加载配置
+    app_config = get_config()
+    # 验证配置
+    if not app_config.validate_config():
+        raise RuntimeError("配置文件验证失败，请检查配置文件")
+    return app_config
+
+
+def get_logger(name, log_config=None):
+    if log_config is None:
+        # 加载配置
+        app_config = get_app_config()
+        # 配置日志
+        log_config = app_config.get_logging_config()
+
+    # 清除已有的日志配置
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    logging.basicConfig(
+        level=getattr(logging, log_config['level']),
+        format=log_config['format'],
+        datefmt=log_config['date_format'],
+        force=True  # 强制重新配置
+    )
+    logger = logging.getLogger(name)
+    return logger
+
+
+def contains_chinese(text):
+    """
+    判断文本内容是否包含中文字符
+    
+    Args:
+        text (str): 需要检查的文本内容
+        
+    Returns:
+        bool: 如果文本包含中文字符返回 True，否则返回 False
+    """
+    if not isinstance(text, str):
+        return False
+    
+    # 使用正则表达式匹配中文字符
+    # \u4e00-\u9fff 是中文字符的 Unicode 范围
+    chinese_pattern = re.compile(r'[\u4e00-\u9fff]+')
+    return bool(chinese_pattern.search(text))

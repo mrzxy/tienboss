@@ -8,29 +8,15 @@ from chat import send_chat_request, send_msg_by_webhook, send_chat_request_by_He
 from config import get_config
 from dc_history import sync_history
 from t3_channel import process_t3, update_tt3_db
-from helper import print_message_details
+from trump_news_channel import process_trump_news
+from helper import print_message_details,get_logger
 # 加载配置
 app_config = get_config()
 # 验证配置
 if not app_config.validate_config():
     raise RuntimeError("配置文件验证失败，请检查配置文件")
 
-# 配置日志
-log_config = app_config.get_logging_config()
-
-# 清除已有的日志配置
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
-
-logging.basicConfig(
-    level=getattr(logging, log_config['level']),
-    format=log_config['format'],
-    datefmt=log_config['date_format'],
-    force=True  # 强制重新配置
-)
-logger = logging.getLogger(__name__)
-
-# 测试日志输出
+logger = get_logger(__name__, app_config.get_logging_config())
 logger.info("日志系统初始化完成")
 
 # 从配置文件读取设置
@@ -233,6 +219,10 @@ async def on_message(message):
 
 
         msg['content'] = content
+    elif 'trump-news' in message.channel.name:
+        msg = process_trump_news(message)
+        
+        return
     elif 'tt3' in message.channel.name:
         msg = process_t3(message)
         # 同时保存TT3消息到数据库

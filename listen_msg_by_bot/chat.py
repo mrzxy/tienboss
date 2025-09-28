@@ -114,7 +114,7 @@ def send_chat_request(content):
 
 
         response = anthropic.messages.create(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-opus-4-1-20250805",
             system=[{ "type": "text", "text": tip }],
             messages=[
               {"role": "user", "content": message}
@@ -184,6 +184,57 @@ def send_chat_request_by_Heisen(content):
 
 
 
+def send_chat_request_by_trump_news(content):
+    try:
+        # 从配置文件获取API key
+        api_key = app_config.get_anthropic_api_key()
+        if not api_key:
+            raise ValueError("Anthropic API key未配置")
+
+        tip = "请将这些内容翻译成通俗易懂的中文，只需要返回翻译后的中文，不需要额外的注或解释"
+
+        # 构建HTTP请求
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": "claude-opus-4-1-20250805",  # 使用标准模型名称
+            "system": tip,
+            "messages": [
+                {"role": "user", "content": content}
+            ],
+            "max_tokens": 20000
+        }
+
+        # 发送HTTP请求
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'content' not in result or len(result["content"]) == 0:
+                logger.error(f"Anthropic HTTP请求返回内容为空: {response.status_code}, {response.text}, 原内容: {content}")
+                return None
+            text = result["content"][0]["text"]
+            logger.info(f"Anthropic HTTP请求成功，返回长度: {len(text)}")
+            return text
+        else:
+            logger.error(f"Anthropic HTTP请求失败: {response.status_code}, {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("Anthropic请求超时")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Anthropic HTTP请求异常: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Anthropic请求失败: {e}")
+        return None
+
 async def send_msg_by_webhook(msg, webhook):
     # webhook = "https://discord.com/api/webhooks/1386580439451435068/nQa_K4i0GGUo0ksQ_ftWuPkaz0Q4HDv6YBve1fjf0rNv9m-R5Q2ufwZURQN1I3cthLGB"
     # webhook = "https://discord.com/api/webhooks/1386583844475375726/6A6cjiaYkbgXHxmQ38muWvKJ4qJqt02HPDsNa92S5BTh_flHN83HMf1IRTDPLXtPYDmZ"
@@ -202,6 +253,41 @@ async def send_msg_by_webhook(msg, webhook):
     except Exception as e:
         logger.error(f"发送消息时出错: {e}")
         return False
+
+
+def send_msg_by_webhook_sync(msg, webhook):
+    """
+    同步版本的 webhook 消息发送函数
+    
+    Args:
+        msg (str): 要发送的消息内容
+        webhook (str): Discord webhook URL
+        
+    Returns:
+        bool: 发送成功返回 True，失败返回 False
+    """
+    payload = {"content": msg}
+
+    webhook += "?wait=true"
+    
+    try:
+        response = requests.post(webhook, json=payload, timeout=30)
+        
+        if response.status_code >= 200 and response.status_code <= 204:
+            logger.info("消息发送成功！")
+            return response.json()
+        else:
+            logger.error(f"发送失败: {response.status_code}, {response.text}")
+            return None
+    except requests.exceptions.Timeout:
+        logger.error("发送消息超时")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"发送消息时网络错误: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"发送消息时出错: {e}")
+        return None
 
 async def send_msg_by_mqtt(client, topic, channel, msg, other=None):
     try:
