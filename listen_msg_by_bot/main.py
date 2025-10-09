@@ -9,6 +9,7 @@ from config import get_config
 from dc_history import sync_history
 from t3_channel import process_t3, update_tt3_db
 from trump_news_channel import process_trump_news
+from chatting_room_channel import process_chatting_room_news
 from helper import print_message_details,get_logger
 # 加载配置
 app_config = get_config()
@@ -219,9 +220,11 @@ async def on_message(message):
 
 
         msg['content'] = content
+    elif 'chatting-room' in message.channel.name:
+        msg = process_chatting_room_news(message)
+        return
     elif 'trump-news' in message.channel.name:
         msg = process_trump_news(message)
-        
         return
     elif 'tt3' in message.channel.name:
         msg = process_t3(message)

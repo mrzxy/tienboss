@@ -182,7 +182,58 @@ def send_chat_request_by_Heisen(content):
         logger.error(f"Anthropic请求失败: {e}")
         return None
 
+def send_chat_request_by_chatting_room(content):
+    tip = "请你扮演一个专业的股票机构从业者，把给你的内容翻译成通俗易懂的中文，不用解释也不用做备注，直接翻译成一段话就行, 直接返回翻译结果。"
+    return send_chat(tip, content)
 
+def send_chat(tip, content):
+    try:
+        # 从配置文件获取API key
+        api_key = app_config.get_anthropic_api_key()
+        if not api_key:
+            raise ValueError("Anthropic API key未配置")
+
+        # 构建HTTP请求
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": "claude-opus-4-1-20250805",  # 使用标准模型名称
+            "system": tip,
+            "messages": [
+                {"role": "user", "content": content}
+            ],
+            "max_tokens": 20000
+        }
+
+        # 发送HTTP请求
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'content' not in result or len(result["content"]) == 0:
+                logger.error(f"Anthropic HTTP请求返回内容为空: {response.status_code}, {response.text}, 原内容: {content}")
+                return None
+            text = result["content"][0]["text"]
+            logger.info(f"Anthropic HTTP请求成功，返回长度: {len(text)}")
+            return text
+        else:
+            logger.error(f"Anthropic HTTP请求失败: {response.status_code}, {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("Anthropic请求超时")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Anthropic HTTP请求异常: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Anthropic请求失败: {e}")
+        return None
 
 def send_chat_request_by_trump_news(content):
     try:
