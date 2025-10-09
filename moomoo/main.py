@@ -8,6 +8,7 @@ import psutil
 import os
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from helper import contains_chinese
 
 # 配置日志 - 必须在导入 config 之前配置，因为 config 模块会在导入时使用 logging
 logging.basicConfig(
@@ -80,18 +81,27 @@ def log_memory_stats():
     except Exception as e:
         log.info(f"获取内存统计失败: {e}")
 
-def get_posts():
+def get_posts_futunn():
+    return get_posts('https://news.futunn.com/news-site-api/main/get-flash-list?pageSize=30&_t=')
+def get_posts_moomoo():
+    return get_posts('https://www.moomoo.com/news/news-site-api/main/get-flash-list?pageSize=30&_t=')
+def get_posts(api_url):
+
   cur_unix = int(time.time() * 1000)  # 精度为毫秒级时间戳
-  url = f"https://news.futunn.com/news-site-api/main/get-flash-list?pageSize=30&_t={cur_unix}"
+  url = f"{api_url}{cur_unix}"
 
   payload={}
   headers = {
     'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
     'Accept': '*/*',
     'Connection': 'keep-alive',
-    'x-news-nuxt-country-code': 'HK',
     'x-news-site-lang': '2',
   }
+  if 'news.futunn' in api_url:
+    headers['referer'] = 'https://news.futunn.com/en/main/live?lang=en-us'
+  else:
+    headers['referer'] = 'https://www.moomoo.com/news/main/live?lang=en-us'
+    headers['x-news-nuxt-country-code'] = 'US'
 
   try:
     proxy_url = None
@@ -104,7 +114,10 @@ def get_posts():
     
     response = session.get(url, headers=headers, cookies=cookies, timeout=(10, 30), )  # 连接超时10秒，读取超时30秒
     if response.status_code == 200:
-      return response.json()
+      result = response.json()
+    #   if 'data' in  result and 'data' in result['data']:
+
+      return result
     else:
       log.info(f"❌ 请求失败: {response.status_code}")    
       return None
@@ -117,6 +130,7 @@ def get_posts():
   except Exception as e:
     log.info(f"❌ 请求异常: {e}")
     return None
+
 
 def on_connect(client, userdata, flags, rc):
   log.info("MQTT连接成功回调被调用")
@@ -178,6 +192,7 @@ def process_posts(client, posts):
         if in_send_history(post['id']):
             continue
 
+
         # 使用示例
         if not is_ts_within_3min(ts):
             # log.info(f"该消息不在当前时间3分钟内: ts={ts}")
@@ -188,13 +203,18 @@ def process_posts(client, posts):
             log.info(f"❌ 消息为空")
             continue
 
+        if contains_chinese(content):
+            log.info(f"消息包含中文字符, 过滤")
+            continue
+
         # 发送MQTT消息
         send_post_by_hook(client, content)
         add_send_history(post['id'])
 
         processed_count += 1
     
-    log.info(f"本次发送了 {processed_count} 消息")
+    if processed_count > 0:
+        log.info(f"本次发送了 {processed_count} 消息")
     
     # 显式删除局部变量引用，帮助内存释放
     # del max_update_unix, processed_count
@@ -264,9 +284,13 @@ def add_send_history(id):
         log.info(f"历史记录已优化，当前保留 {len(send_history)} 条记录")
 
 def ranse():
-    resp = get_posts()
+    resp = get_posts_futunn()
     if 'code' in resp and resp['code'] == 0:
-        # print(resp['data']['data']['news'][0])
+        for post in resp['data']['data']['news']:
+            add_send_history(post['id'])
+
+    resp = get_posts_moomoo()
+    if 'code' in resp and resp['code'] == 0:
         for post in resp['data']['data']['news']:
             add_send_history(post['id'])
 
@@ -320,8 +344,7 @@ def send_msg_by_webhook_sync(msg, webhook):
         response = requests.post(webhook, json=payload, timeout=30)
         
         if response.status_code >= 200 and response.status_code <= 204:
-            log.info("消息发送成功！")
-            return response.json()
+            return response.content.decode('utf-8')
         else:
             log.error(f"发送失败: {response.status_code}, {response.text}")
             return None
@@ -344,17 +367,11 @@ def listen(client):
     while True:
         posts = None  # 初始化变量
         try:
-            log.info(f"\n--- 请求Posts数据 (last_ts: {last_ts}) ---")
-            
-            # 请求get_posts API
-            posts = get_posts()
+            posts = get_posts_futunn()
             
             if posts is None:
                 log.info("❌ API请求失败")
             elif 'data' in posts and 'data' in posts['data']:
-                log.info(f"📨 获取到 {len(posts['data']['data']['news'])} 条posts数据")
-                
-                # 处理posts数据
                 if len(posts['data']['data']['news']) > 0:
                     process_posts(client, list(reversed(posts['data']['data']['news'])))
                 else:
@@ -362,11 +379,20 @@ def listen(client):
             else:
                 log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
             
+            posts = get_posts_moomoo()
+            if posts is None:
+                log.info("❌ API请求失败")
+            elif 'data' in posts and 'data' in posts['data']:
+                if len(posts['data']['data']['news']) > 0:
+                    process_posts(client, list(reversed(posts['data']['data']['news'])))
+                else:
+                    log.info("没有新的moo posts数据")
+            else:
+                log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
             # 记录内存使用统计
-            log_memory_stats()
+            # log_memory_stats()
             
             # 休息5秒
-            log.info("💤 等待5秒后继续监听...")
             time.sleep(10)
             
         except KeyboardInterrupt:
