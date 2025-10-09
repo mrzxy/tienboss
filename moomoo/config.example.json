@@ -1,0 +1,9 @@
+{
+    "app": {
+        "environment": "test"
+    },
+    "anthropic": {
+        "api_key": ""
+    }
+   
+}

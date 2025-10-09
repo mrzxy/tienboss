@@ -80,25 +80,29 @@ def log_memory_stats():
     except Exception as e:
         log.info(f"获取内存统计失败: {e}")
 
-def get_posts(ts):
-  url = f"https://phx.unusualwhales.com/api/trump/tweets"
+def get_posts():
+  cur_unix = int(time.time() * 1000)  # 精度为毫秒级时间戳
+  url = f"https://news.futunn.com/news-site-api/main/get-flash-list?pageSize=30&_t={cur_unix}"
 
   payload={}
   headers = {
     'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
     'Accept': '*/*',
     'Connection': 'keep-alive',
+    'x-news-nuxt-country-code': 'HK',
+    'x-news-site-lang': '2',
   }
 
   try:
     proxy_url = None
-    if debug:
-        proxy_url = "127.0.0.1:7890"
-    # 使用session发送请求，设置超时时间
+   
     if proxy_url is not None:
         session.proxies = {"http": proxy_url, "https": proxy_url}
 
-    response = session.get(url, headers=headers, timeout=(10, 30), )  # 连接超时10秒，读取超时30秒
+    # 设置 cookie
+    cookies = {'locale': 'en-us'}
+    
+    response = session.get(url, headers=headers, cookies=cookies, timeout=(10, 30), )  # 连接超时10秒，读取超时30秒
     if response.status_code == 200:
       return response.json()
     else:
@@ -169,9 +173,9 @@ def process_posts(client, posts):
     # 处理每个post
     processed_count = 0
     for post in posts:
-        ts = post.get('timestamp', '')
+        ts = post.get('time', '')
 
-        if in_send_history(int(ts)):
+        if in_send_history(post['id']):
             continue
 
         # 使用示例
@@ -179,23 +183,18 @@ def process_posts(client, posts):
             # log.info(f"该消息不在当前时间3分钟内: ts={ts}")
             continue
         
-        content = post.get('post', '').strip()
+        content = post.get('content', '').strip()
         if content == "":
             log.info(f"❌ 消息为空")
             continue
 
         # 发送MQTT消息
-        send_post_to_mqtt(client, content)
-        add_send_history(int(ts))
-
-        cn_content = send_chat_request_by_trump_news(content)
-        if cn_content is not None:
-            send_post_to_mqtt(client, cn_content)
+        send_post_by_hook(client, content)
+        add_send_history(post['id'])
 
         processed_count += 1
     
-    if processed_count > 0:
-        log.info(f"本次发送了 {processed_count} 消息")
+    log.info(f"本次发送了 {processed_count} 消息")
     
     # 显式删除局部变量引用，帮助内存释放
     # del max_update_unix, processed_count
@@ -256,25 +255,31 @@ def in_send_history(id):
         if item == id:
             return True
     return False
-    
+   
+
 def add_send_history(id):
     send_history.append(id)
     if len(send_history) > 100:
         send_history[:] = send_history[-50:]
         log.info(f"历史记录已优化，当前保留 {len(send_history)} 条记录")
 
-def send_post_to_mqtt(client, content):
+def ranse():
+    resp = get_posts()
+    if 'code' in resp and resp['code'] == 0:
+        # print(resp['data']['data']['news'][0])
+        for post in resp['data']['data']['news']:
+            add_send_history(post['id'])
+
+def send_post_by_hook(client, content):
     """发送post到MQTT"""
     webhook_url = "https://discord.com/api/webhooks/1386580439451435068/nQa_K4i0GGUo0ksQ_ftWuPkaz0Q4HDv6YBve1fjf0rNv9m-R5Q2ufwZURQN1I3cthLGB"
     if debug:
-        webhook_url = "https://discord.com/api/webhooks/1421750366483251232/9g_IvTelfhqj8uP-IAxIAEcQt94ivQCM3AeTqhXESiXDGpAbfbwNZW8l23FJXPvtVolo?wait=true"
+        webhook_url = "https://discord.com/api/webhooks/1425730061989838943/95reh2xGifwFXw2znciriHzERRQO40_d6-l9250ymz2WPkYj7Ty2pHJDCJZ3Hw6TF9ET"
         
     if content == "":
       log.info(f"❌ 消息为空")
       return
-
     
-
     send_msg_by_webhook_sync(content, webhook_url)
     
          # 判断ts（13位毫秒时间戳）是否在当前时间3分钟内
@@ -290,7 +295,7 @@ def is_ts_within_3min(ts):
     """
     try:
         ts_int = int(ts)
-        ts_sec = ts_int // 1000
+        ts_sec = ts_int
         now_sec = int(time.time())
         return abs(now_sec - ts_sec) <= 180
     except Exception as e:
@@ -339,28 +344,30 @@ def listen(client):
     while True:
         posts = None  # 初始化变量
         try:
+            log.info(f"\n--- 请求Posts数据 (last_ts: {last_ts}) ---")
             
             # 请求get_posts API
-            posts = get_posts(last_ts)
+            posts = get_posts()
             
             if posts is None:
                 log.info("❌ API请求失败")
-            elif 'data' in posts and isinstance(posts['data'], list):
-                # log.info(f"📨 获取到 {len(posts['data'])} 条posts数据")
+            elif 'data' in posts and 'data' in posts['data']:
+                log.info(f"📨 获取到 {len(posts['data']['data']['news'])} 条posts数据")
                 
                 # 处理posts数据
-                if len(posts['data']) > 0:
-                    process_posts(client, list(reversed(posts['data'])))
+                if len(posts['data']['data']['news']) > 0:
+                    process_posts(client, list(reversed(posts['data']['data']['news'])))
                 else:
                     log.info("没有新的posts数据")
             else:
                 log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
             
-            # log_memory_stats()
+            # 记录内存使用统计
+            log_memory_stats()
             
             # 休息5秒
-            # log.info("💤 等待5秒后继续监听...")
-            time.sleep(5)
+            log.info("💤 等待5秒后继续监听...")
+            time.sleep(10)
             
         except KeyboardInterrupt:
             log.info("\n⏹️ 用户中断监听")
@@ -405,6 +412,7 @@ if __name__ == "__main__":
         if connect_result:
             log.info("✅ MQTT连接成功，开始监听Posts...")
             # 开始监听
+            ranse()
             listen(client)
         else:
             log.info("❌ MQTT连接失败")
