@@ -95,7 +95,7 @@ def get_posts(api_url):
     'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
     'Accept': '*/*',
     'Connection': 'keep-alive',
-    'x-news-site-lang': '2',
+    'x-news-site-lang': '0',
   }
   if 'news.futunn' in api_url:
     headers['referer'] = 'https://news.futunn.com/en/main/live?lang=en-us'
@@ -203,8 +203,8 @@ def process_posts(client, posts):
             log.info(f"❌ 消息为空")
             continue
 
-        if contains_chinese(content):
-            log.info(f"消息包含中文字符, 过滤")
+        if not contains_chinese(content):
+            log.info(f"消息不包含中文字符, 过滤")
             continue
 
         # 发送MQTT消息
@@ -296,7 +296,7 @@ def ranse():
 
 def send_post_by_hook(client, content):
     """发送post到MQTT"""
-    webhook_url = "https://discord.com/api/webhooks/1386580439451435068/nQa_K4i0GGUo0ksQ_ftWuPkaz0Q4HDv6YBve1fjf0rNv9m-R5Q2ufwZURQN1I3cthLGB"
+    webhook_url = "https://discord.com/api/webhooks/1420057607082872842/wTvhLzA_fx3iIExMfVjOhmVtiH4OynVlj1_tWWVpiBLBZJ0HVuQAl_24SgFLQhR2INh9"
     if debug:
         webhook_url = "https://discord.com/api/webhooks/1425730061989838943/95reh2xGifwFXw2znciriHzERRQO40_d6-l9250ymz2WPkYj7Ty2pHJDCJZ3Hw6TF9ET"
         
