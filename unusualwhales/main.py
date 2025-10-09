@@ -176,7 +176,8 @@ def process_posts(client, posts):
 
         # 使用示例
         if not is_ts_within_3min(ts):
-            # log.info(f"该消息不在当前时间3分钟内: ts={ts}")
+            log.info(f"该消息不在当前时间3分钟内: ts={ts}")
+            add_send_history(int(ts))
             continue
         
         content = post.get('post', '').strip()
