@@ -175,10 +175,10 @@ def process_posts(client, posts):
             continue
 
         # 使用示例
-        if not is_ts_within_3min(ts):
-            log.info(f"该消息不在当前时间3分钟内: ts={ts}")
-            add_send_history(int(ts))
-            continue
+        # if not is_ts_within_3min(ts):
+        #     log.info(f"该消息不在当前时间3分钟内: ts={ts}")
+        #     add_send_history(int(ts))
+        #     continue
         
         content = post.get('post', '').strip()
         if content == "":
@@ -375,6 +375,18 @@ def listen(client):
             if posts is not None:
                 del posts
 
+def ranse():
+    posts = get_posts(last_ts)
+
+    if posts is None:
+        log.info("❌ API请求失败")
+    elif 'data' in posts and isinstance(posts['data'], list):
+        for post in posts['data']:
+            add_send_history(int(post['timestamp']))
+    else:
+        log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
+    
+
 
 if __name__ == "__main__":
 
@@ -406,6 +418,7 @@ if __name__ == "__main__":
         if connect_result:
             log.info("✅ MQTT连接成功，开始监听Posts...")
             # 开始监听
+            ranse()
             listen(client)
         else:
             log.info("❌ MQTT连接失败")
