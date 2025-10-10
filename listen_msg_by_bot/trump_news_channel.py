@@ -12,7 +12,6 @@ logger = get_logger(__name__, app_config.get_logging_config())
 send_history = []
 
 def in_send_history(id):
-    print(f"send_history: {send_history}")
     for item in send_history:
         if item == id:
             return True
@@ -20,10 +19,8 @@ def in_send_history(id):
     
 def add_send_history(id):
     send_history.append(id)
-    print(f"send_history: {send_history}")
     if len(send_history) > 100:
         send_history[:] = send_history[-50:]
-        logger.info(f"历史记录已优化，当前保留 {len(send_history)} 条记录")
 
 webhook_map = {
     'New York Post': 'https://discord.com/api/webhooks/1421682710945988641/M9HOYu-fvZ-RrwywoXYRJ5i_jiq4yEHhNL3JoFvHFpLd97JSDnOjolrEZPJyIcp4BZ9N',
