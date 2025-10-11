@@ -260,8 +260,8 @@ def in_send_history(id):
     
 def add_send_history(id):
     send_history.append(id)
-    if len(send_history) > 100:
-        send_history[:] = send_history[-50:]
+    if len(send_history) > 300:
+        send_history[:] = send_history[-150:]
         log.info(f"历史记录已优化，当前保留 {len(send_history)} 条记录")
 
 def send_post_to_mqtt(client, content):
