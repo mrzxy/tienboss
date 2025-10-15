@@ -6,6 +6,7 @@ import logging
 import re
 import psutil
 import os
+import hashlib
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -79,6 +80,12 @@ def log_memory_stats():
         
     except Exception as e:
         log.info(f"获取内存统计失败: {e}")
+
+def get_msg_id(ts, content):
+    content_md5 = hashlib.md5(content.encode('utf-8')).hexdigest()
+    msg_id = f"{content_md5}_{ts}"
+    return msg_id
+
 
 def get_posts(ts):
   url = f"https://phx.unusualwhales.com/api/trump/tweets"
@@ -171,23 +178,27 @@ def process_posts(client, posts):
     for post in posts:
         ts = post.get('timestamp', '')
 
-        if in_send_history(int(ts)):
+        content = post.get('post', '').strip()
+
+        msg_id = get_msg_id(ts, content)
+
+        if in_send_history(msg_id):
             continue
 
         # 使用示例
         if not is_ts_within_3min(ts):
             log.info(f"该消息不在当前时间60分钟内: ts={ts}")
-            add_send_history(int(ts))
+            add_send_history(msg_id)
             continue
         
-        content = post.get('post', '').strip()
+    
         if content == "":
             log.info(f"❌ 消息为空")
             continue
 
         # 发送MQTT消息
         send_post_to_mqtt(client, content)
-        add_send_history(int(ts))
+        add_send_history(msg_id)
 
         cn_content = send_chat_request_by_trump_news(content)
         if cn_content is not None:
@@ -382,7 +393,10 @@ def ranse():
         log.info("❌ API请求失败")
     elif 'data' in posts and isinstance(posts['data'], list):
         for post in posts['data']:
-            add_send_history(int(post['timestamp']))
+            ts = post.get('timestamp', '')
+            content = post.get('post', '').strip()
+            msg_id = get_msg_id(ts, content)
+            add_send_history(msg_id)
     else:
         log.info(f"⚠️ API返回了意外的数据格式: {type(posts)}")
     
