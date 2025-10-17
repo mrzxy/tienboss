@@ -196,6 +196,8 @@ def process_posts(client, posts):
             log.info(f"❌ 消息为空")
             continue
 
+        log.info(f"📨 发送: {msg_id} - {content[:10]}")
+
         # 发送MQTT消息
         send_post_to_mqtt(client, content)
         add_send_history(msg_id)
@@ -205,6 +207,7 @@ def process_posts(client, posts):
             send_post_to_mqtt(client, cn_content)
 
         processed_count += 1
+        break
     
     if processed_count > 0:
         log.info(f"本次发送了 {processed_count} 消息")
@@ -358,8 +361,6 @@ def listen(client):
             if posts is None:
                 log.info("❌ API请求失败")
             elif 'data' in posts and isinstance(posts['data'], list):
-                # log.info(f"📨 获取到 {len(posts['data'])} 条posts数据")
-                
                 # 处理posts数据
                 if len(posts['data']) > 0:
                     process_posts(client, list(reversed(posts['data'])))
