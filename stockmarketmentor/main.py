@@ -18,6 +18,20 @@ log = logging.getLogger(__name__)
 
 debug = False
 
+send_history = []
+
+def in_send_history(id):
+    for item in send_history:
+        if item == id:
+            return True
+    return False
+    
+def add_send_history(id):
+    send_history.append(id)
+    if len(send_history) > 500:
+        send_history[:] = send_history[-250:]
+
+
 proxy_url = "http://D0BFA2CA:809AD5BFCDCB@tunpool-yu7bw.qg.net:11639"
 
 # 创建一个持久的session对象，复用连接
@@ -106,7 +120,7 @@ def on_connect(client, userdata, flags, rc):
 # 全局变量
 last_ts = int(time.time())  # 当前时间戳作为初始值
 if debug:
-    last_ts = 1760659110
+    last_ts = 1760707734
 # 白名单用户
 whitelist_users = ['DavidK', 'woodman', 'champ', 'joelsg1']
 
@@ -138,6 +152,7 @@ def process_posts(client, posts):
         log.info("没有新的posts数据")
         return
     
+    
     # 更新last_ts为返回记录中最大的update_unix - 优化内存使用
     max_update_unix = last_ts
     for post in posts:
@@ -150,6 +165,8 @@ def process_posts(client, posts):
     if max_update_unix > last_ts:
         last_ts = max_update_unix
         log.info(f"更新last_ts为: {last_ts}")
+    if debug:
+        last_ts = 1760707734
     
     # 处理每个post
     processed_count = 0
@@ -163,9 +180,15 @@ def process_posts(client, posts):
               continue
         
         log.info(f"处理白名单用户 {author} 的消息")
+        main_id = post.get('reply_id')
+
+        if in_send_history(main_id):
+            print(f"跳过已发送的消息: {main_id}")
+            continue
         
         # 发送MQTT消息
         send_post_to_mqtt(client, post)
+        add_send_history(main_id)
         processed_count += 1
     
     log.info(f"本次处理了 {processed_count} 条白名单用户消息")
