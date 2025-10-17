@@ -106,7 +106,7 @@ def on_connect(client, userdata, flags, rc):
 # 全局变量
 last_ts = int(time.time())  # 当前时间戳作为初始值
 if debug:
-  last_ts = 1752623143
+    last_ts = 1760659110
 # 白名单用户
 whitelist_users = ['DavidK', 'woodman', 'champ', 'joelsg1']
 
@@ -141,12 +141,11 @@ def process_posts(client, posts):
     # 更新last_ts为返回记录中最大的update_unix - 优化内存使用
     max_update_unix = last_ts
     for post in posts:
-        try:
-            update_unix = int(post.get('update_unix', 0))
-            if update_unix > max_update_unix:
-                max_update_unix = update_unix
-        except (ValueError, TypeError):
-            continue
+        update_unix = int(post.get('post_unix', 0))
+        is_reply = True if post.get('reply_number') is not None else False
+        current_time = int(time.time())
+        if update_unix > max_update_unix and update_unix <= current_time:
+            max_update_unix = update_unix
     
     if max_update_unix > last_ts:
         last_ts = max_update_unix
