@@ -307,7 +307,7 @@ def is_ts_within_3min(ts):
         ts_int = int(ts)
         ts_sec = ts_int // 1000
         now_sec = int(time.time())
-        return abs(now_sec - ts_sec) <= 3600
+        return abs(now_sec - ts_sec) <= 3600 * 12
     except Exception as e:
         log.info(f"解析ts时出错: {e}")
         return False  
