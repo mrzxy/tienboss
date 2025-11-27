@@ -1,0 +1,15 @@
+# Discord Bot
+discord.py>=2.3.0
+
+# HTTP 请求
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# Anthropic AI
+anthropic>=0.34.0
+
+# MQTT 客户端
+paho-mqtt>=2.0.0
+
+# 轻量级数据库
+tinydb>=4.8.0
