@@ -62,7 +62,7 @@ class MasterBot:
         async def on_message(message):
      
             
-            auto_like_channels = ['tt3', 'trump-news', "learning"]  # 可以配置需要自动 like 的频道
+            auto_like_channels = ['tt3', 'trump-news', "stock-swingtrades"]  # 可以配置需要自动 like 的频道
             
             # 检查是否需要自动 like
             should_auto_like = any(channel_name in message.channel.name for channel_name in auto_like_channels)
