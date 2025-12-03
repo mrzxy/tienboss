@@ -105,8 +105,11 @@ class MasterBot:
         """分发反应任务给所有工作Bot"""
         emoji_list = ['🫡','👍🏻','🐐','👏','🔥','❤️','💯', '💪🏻', '🚀', '🥑', '👑']
         
-        # 为每个emoji随机分配30-32个worker
-        emoji_counts = {emoji: random.randint(5, 31) for emoji in emoji_list}
+        # 随机选取6-11个表情
+        selected_emojis = random.sample(emoji_list, random.randint(6, 11))
+        
+        # 为每个emoji随机分配5-31个worker
+        emoji_counts = {emoji: random.randint(5, 31) for emoji in selected_emojis}
         
         # 为每个emoji选择对应数量的worker
         tasks = []
