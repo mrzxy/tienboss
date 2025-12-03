@@ -62,16 +62,23 @@ class MasterBot:
         async def on_message(message):
      
             
-            auto_like_channels = ['tt3', 'trump-news', "stock-swingtrades"]  # 可以配置需要自动 like 的频道
+            auto_like_channels = ['tt3', 'trump-news', "stock-swingtrades", "longterm-action", "market-analysis"]  # 可以配置需要自动 like 的频道
             
             # 检查是否需要自动 like
             should_auto_like = any(channel_name in message.channel.name for channel_name in auto_like_channels)
             
             if should_auto_like:
-                print('塞入队列处理')
-                await self.message_queue.put(message)
+                print('塞入队列处理，1分钟后开始')
+                # 1分钟后再加入队列处理
+                asyncio.create_task(self._delayed_queue_put(message, delay=30))
             
             await self.master_bot.process_commands(message)
+    
+    async def _delayed_queue_put(self, message, delay: int):
+        """延迟后将消息加入队列"""
+        await asyncio.sleep(delay)
+        await self.message_queue.put(message)
+        logger.info(f'消息 {message.id} 已加入队列处理')
     
     async def initialize_workers(self):
         """初始化工作Bot集群"""
