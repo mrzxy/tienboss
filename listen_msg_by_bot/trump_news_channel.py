@@ -27,6 +27,10 @@ webhook_map = {
     'Reuters': 'https://discord.com/api/webhooks/1421683254271934505/Um3jzKrn0HNKCPGBefV-oBikFmG8onfL2VIrTmDbmSxULMik2vzbkrfA10uFylxWFkI9',
     '*Walter Bloomberg': 'https://discord.com/api/webhooks/1421683391723470951/B6FK1xUM4bl4nl43CgGEKLcQSQ6sRJAz_AunjGGahj9r6CXMhraMgk_XH27AShaoqdES',
     'Wall St Engine': 'https://discord.com/api/webhooks/1421683654198825052/G7N3n-qa0aYNtajGFE58EdK08_CcQeQ3i6SkthC8EkcLhVT4Ic--MW2zDjdOPkJo5OSf',
+    'Evan': 'https://discord.com/api/webhooks/1433668745624027269/jIrlhhBQFG7_D_DKSoMDtp6n15HLrVFPc6Z6tzs7M5jwDvByAoehGoo874Es3Q28dfmM',
+    'The Kobeissi Letter': 'https://discord.com/api/webhooks/1433668748748787733/q5x-PDCPAMo28r37_IuyKJPBYA4L84UvAsPAKzxp6s_MFs2kY-IPRv_SKx4G1wEPvPMS',
+    'Watcher.Guru': 'https://discord.com/api/webhooks/1447773729479331870/eWJo7cVJ1QH1O_PD5QMdN4UPAVZnDFV03racTdGMipFZsH07L1zG34MlAWbv4L2oNG48',
+    'zerohedge': 'https://discord.com/api/webhooks/1447773742452310128/XChCurFICAGJjmtevI76fxdq4k1VDWNBRvcj9k_Yk_xWpIln_rf0ydGCPtK6XbXpbuKY',
     # TODO
     'FinancialJuice': 'https://discord.com/api/webhooks/1433668737969688617/RP7dTRf2BX1p81fAuWGJfbZE_qK-j4-RVhIRqEaW26VisOFZcrVj8D2fNSLTb4ewK9Fw',
     'qiyuhook': 'https://discord.com/api/webhooks/1421750366483251232/9g_IvTelfhqj8uP-IAxIAEcQt94ivQCM3AeTqhXESiXDGpAbfbwNZW8l23FJXPvtVolo'
