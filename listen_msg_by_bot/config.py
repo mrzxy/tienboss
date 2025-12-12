@@ -8,7 +8,7 @@
 import json
 import os
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 class Config:
@@ -113,6 +113,58 @@ class Config:
             return int(channel_id)
         except (ValueError, TypeError):
             return 0
+    
+    def get_listen_channels(self) -> list:
+        """
+        获取监听频道列表
+        
+        Returns:
+            监听频道列表，每个元素包含 id, name, category
+        """
+        return self.get('discord.listen_channel', [])
+    
+    def get_listen_channel_ids(self) -> list:
+        """
+        获取所有监听频道ID列表
+        
+        Returns:
+            频道ID列表 (int)
+        """
+        channels = self.get_listen_channels()
+        ids = []
+        for ch in channels:
+            try:
+                ids.append(int(ch.get('id', 0)))
+            except (ValueError, TypeError):
+                continue
+        return ids
+    
+    def get_listen_channel_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        根据名称获取监听频道配置
+        
+        Args:
+            name: 频道名称
+            
+        Returns:
+            频道配置字典，未找到返回None
+        """
+        for ch in self.get_listen_channels():
+            if ch.get('name') == name:
+                return ch
+        return None
+    
+    def get_listen_channel_by_category(self, category: str) -> list:
+        """
+        根据分类获取监听频道列表
+        
+        Args:
+            category: 分类名称
+            
+        Returns:
+            匹配的频道配置列表
+        """
+        return [ch for ch in self.get_listen_channels() if ch.get('category') == category]
     
     def get_proxy_url(self) -> Optional[str]:
         """获取代理URL"""

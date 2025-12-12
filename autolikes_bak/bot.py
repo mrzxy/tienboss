@@ -17,7 +17,6 @@ import urllib.parse
 app_config = get_config()
 debug = app_config.is_debug()
 logger = get_logger(__name__, app_config.get_logging_config())
-listen_channel = app_config.get_listen_channels()
 
 @dataclass
 class BotConfig:
@@ -61,45 +60,25 @@ class MasterBot:
         
         @self.master_bot.event
         async def on_message(message):
-            # 查找匹配的监听频道配置
-            matched_channel = None
-            for ch in listen_channel:
-                if str(message.channel.id) == str(ch.get('id')):
-                    matched_channel = ch
-                    break
+     
             
-            print(message)
-            print(message.channel)
-            print(message.channel.id)
-            # 未找到匹配频道，直接返回
-            if not matched_channel:
-                await self.master_bot.process_commands(message)
-                return
-
-            if message.channel.id != 1430131207575965838:
-                print("跳过")
-                await self.master_bot.process_commands(message)
-                return
+            auto_like_channels = ['tt3', 'trump-news', "stock-swingtrades", "longterm-action", "market-analysis"]  # 可以配置需要自动 like 的频道
             
-            category = matched_channel.get('category', 'green')
+            # 检查是否需要自动 like
+            should_auto_like = any(channel_name in message.channel.name for channel_name in auto_like_channels)
             
-            # green分类 1/3概率跳过
-            if category == 'green':
-                if random.randint(1, 3) == 1:
-                    logger.info(f'频道 {message.channel.name} (green) 掷骰子跳过')
-                    await self.master_bot.process_commands(message)
-                    return
-            
-            print(f'塞入队列处理，频道: {matched_channel.get("name")}, 分类: {category}')
-            # 30秒后加入队列处理
-            asyncio.create_task(self._delayed_queue_put({'message': message, 'category': category}, delay=30))
+            if should_auto_like:
+                print('塞入队列处理，1分钟后开始')
+                # 1分钟后再加入队列处理
+                asyncio.create_task(self._delayed_queue_put(message, delay=30))
             
             await self.master_bot.process_commands(message)
     
-    async def _delayed_queue_put(self, data: dict, delay: int):
+    async def _delayed_queue_put(self, message, delay: int):
         """延迟后将消息加入队列"""
         await asyncio.sleep(delay)
-        await self.message_queue.put(data)
+        await self.message_queue.put(message)
+        logger.info(f'消息 {message.id} 已加入队列处理')
     
     async def initialize_workers(self):
         """初始化工作Bot集群"""
@@ -122,32 +101,22 @@ class MasterBot:
         """处理消息队列（非阻塞）"""
         if not self.message_queue.empty():
             try:
-                data = await asyncio.wait_for(self.message_queue.get(), timeout=0.1)
-                await self.dispatch_reaction_tasks(data)
+                message = await asyncio.wait_for(self.message_queue.get(), timeout=0.1)
+                await self.dispatch_reaction_tasks(message)
             except asyncio.TimeoutError:
                 pass
             except Exception as e:
                 logger.error(f"处理消息队列时出错: {e}")
     
-    async def dispatch_reaction_tasks(self, data: dict):
+    async def dispatch_reaction_tasks(self, message: discord.Message):
         """分发反应任务给所有工作Bot"""
-        message = data['message']
-        category = data.get('category', 'red')
-        
         emoji_list = ['🫡','👍🏻','🐐','👏','🔥','❤️','💯', '💪🏻', '🚀', '🥑', '👑']
         
-        # 根据category设置不同参数
-        if category == 'green':
-            # green: 1-3个表情, 每个1-10个
-            emoji_count = random.randint(1, 3)
-            worker_range = (1, 10)
-        else:
-            # red (默认): 6-11个表情, 每个5-40个
-            emoji_count = random.randint(6, 11)
-            worker_range = (5, 40)
+        # 随机选取6-11个表情
+        selected_emojis = random.sample(emoji_list, random.randint(6, 11))
         
-        selected_emojis = random.sample(emoji_list, min(emoji_count, len(emoji_list)))
-        emoji_counts = {emoji: random.randint(*worker_range) for emoji in selected_emojis}
+        # 为每个emoji随机分配5-31个worker
+        emoji_counts = {emoji: random.randint(5, 31) for emoji in selected_emojis}
         
         # 为每个emoji选择对应数量的worker
         tasks = []
@@ -170,7 +139,7 @@ class MasterBot:
                 task.add_done_callback(lambda t, name=task_name: self.active_tasks.pop(name, None))
         
         # 不等待任务完成，立即返回
-        logger.info(f"已为消息 {message.id} (category: {category}) 分发 {len(tasks)} 个反应任务，emoji分配: {emoji_counts}")
+        logger.info(f"已为消息 {message.id} 分发 {len(tasks)} 个反应任务，emoji分配: {emoji_counts}")
         
         # 可选：后台监控任务完成情况
         asyncio.create_task(self.monitor_tasks_completion(message.id, tasks))
@@ -294,7 +263,7 @@ class WorkerBot:
         self.config = config
         self.session = session
         self.headers = {
-            'Authorization': f'{config.token}',
+            'Authorization': f'Bot {config.token}',
             'Content-Type': 'application/json',
             'User-Agent': 'DiscordBot (https://github.com) Python/3.8 aiohttp/3.7.4'
         }
@@ -347,7 +316,6 @@ class WorkerBot:
                 else:
                     error_text = await response.text()
                     logger.error(f'API错误 {response.status}: {error_text}')
-                    logger.error(f'token:{self.config.token}')
                     return False
                     
         except aiohttp.ClientError as e:
@@ -355,156 +323,11 @@ class WorkerBot:
             return False
     
     async def test_connection(self) -> bool:
-        """测试用户连接状态"""
+        """测试Bot连接状态"""
         url = "https://discord.com/api/v10/users/@me"
         
-        # 使用用户token的headers
-        user_headers = {
-            'Authorization': self.config.token,
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-        
         try:
-            async with self.session.get(url, headers=user_headers) as response:
+            async with self.session.get(url, headers=self.headers) as response:
                 return response.status == 200
         except:
             return False
-
-
-async def batch_test_tokens(tokens: List[str]) -> Dict[str, bool]:
-    """
-    批量测试tokens是否有效
-    
-    Args:
-        tokens: token列表
-        
-    Returns:
-        Dict[token, is_valid] 每个token的有效性
-    """
-    url = "https://discord.com/api/v10/users/@me"
-    results = {}
-    
-    async with aiohttp.ClientSession() as session:
-        for i, token in enumerate(tokens):
-            if i==0:
-                continue
-            headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            
-            try:
-                async with session.get(url, headers=headers) as response:
-                    is_valid = response.status == 200
-                    if is_valid:
-                        data = await response.json()
-                        username = data.get('username', 'unknown')
-                        logger.info(f'✅ Token {i+1}: 有效 (用户: {username})')
-                    else:
-                        logger.warning(f'❌ Token {i+1}: 无效 (状态码: {response.status})')
-                    results[token[:20] + '...'] = is_valid
-            except Exception as e:
-                logger.error(f'❌ Token {i+1}: 检测失败 ({e})')
-                results[token[:20] + '...'] = False
-            
-            # 避免触发速率限制
-            await asyncio.sleep(3)
-    
-    valid_count = sum(1 for v in results.values() if v)
-    logger.info(f'📊 检测完成: {valid_count}/{len(tokens)} 个token有效')
-    
-    return results
-
-
-async def test_all_tokens():
-    """测试配置文件中所有tokens"""
-    from config import config as app_config
-    
-    tokens = app_config.get_discord_token()
-    if not tokens:
-        logger.error("未找到tokens配置")
-        return
-    
-    if isinstance(tokens, str):
-        tokens = [tokens]
-    
-    logger.info(f"开始检测 {len(tokens)} 个tokens...")
-    return await batch_test_tokens(tokens)
-
-
-async def batch_add_reaction(channel_id: int, message_id: int, emoji: str = '👍'):
-    """
-    用所有tokens挨个给消息点赞
-    
-    Args:
-        channel_id: 频道ID
-        message_id: 消息ID
-        emoji: 表情，默认👍
-    """
-    from config import config as app_config
-    
-    tokens = app_config.get_discord_token()
-    if not tokens:
-        logger.error("未找到tokens配置")
-        return
-    
-    if isinstance(tokens, str):
-        tokens = [tokens]
-    
-    encoded_emoji = urllib.parse.quote(emoji, safe='')
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{encoded_emoji}/@me"
-    
-    success_count = 0
-    fail_count = 0
-    
-    logger.info(f"开始用 {len(tokens)} 个账号给消息 {message_id} 点赞...")
-    
-    async with aiohttp.ClientSession() as session:
-        for i, token in enumerate(tokens):
-            if i == 0:
-                continue
-            
-            headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            
-            try:
-                async with session.put(url, headers=headers) as response:
-                    if response.status == 204:
-                        success_count += 1
-                        logger.info(f'✅ Token {i+1}: 点赞成功')
-                    elif response.status == 429:
-                        retry_after = float(response.headers.get('Retry-After', 5))
-                        logger.warning(f'⚠️ Token {i+1}: 速率限制，等待 {retry_after} 秒')
-                        await asyncio.sleep(retry_after)
-                        # 重试
-                        async with session.put(url, headers=headers) as retry_resp:
-                            if retry_resp.status == 204:
-                                success_count += 1
-                                logger.info(f'✅ Token {i+1}: 重试点赞成功')
-                            else:
-                                fail_count += 1
-                                logger.warning(f'❌ Token {i+1}: 重试失败 ({retry_resp.status})')
-                    else:
-                        fail_count += 1
-                        error_text = await response.text()
-                        logger.warning(f'❌ Token {i+1}: 点赞失败 ({response.status}) {error_text[:100]}')
-            except Exception as e:
-                fail_count += 1
-                logger.error(f'❌ Token {i+1}: 异常 ({e})')
-            
-            # 避免触发速率限制
-            await asyncio.sleep(5)
-    
-    logger.info(f'📊 点赞完成: {success_count} 成功, {fail_count} 失败')
-
-
-if __name__ == "__main__":
-    # 给指定消息点赞
-    CHANNEL_ID = 1430131207575965838
-    MESSAGE_ID = 1448559543079534602
-    asyncio.run(batch_add_reaction(CHANNEL_ID, MESSAGE_ID, '👍'))
