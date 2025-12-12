@@ -68,9 +68,7 @@ class MasterBot:
                     matched_channel = ch
                     break
             
-            print(message)
-            print(message.channel)
-            print(message.channel.id)
+     
             # 未找到匹配频道，直接返回
             if not matched_channel:
                 await self.master_bot.process_commands(message)

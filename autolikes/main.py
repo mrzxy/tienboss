@@ -60,7 +60,7 @@ async def main():
     MASTER_BOT_TOKEN = app_key_list[0]
     BOT_CONFIGS = []
     pos = 1
-    for x in app_key_list:
+    for x in app_key_list[1:]:
         BOT_CONFIGS.append(BotConfig(token=x, name=f'bot_{pos}', delay_range=(1, 600), enabled=True))
         pos += 1
 
