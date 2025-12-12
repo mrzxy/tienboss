@@ -132,7 +132,8 @@ class MasterBot:
         message = data['message']
         category = data.get('category', 'red')
         
-        emoji_list = ['🫡','👍🏻','🐐','👏','🔥','❤️','💯', '💪🏻', '🚀', '🥑', '👑']
+        # 🥳🫡🤑🫶🏻👏🏻👻👊🏻👍🙏🏻👑🌹🔥🥑❤️💯💰📈📝🚀🐐✈️⬆️🫰😄
+        emoji_list = ['🥳', '🫡', '🤑', '🫶🏻', '👏🏻', '👻', '👊🏻', '👍🏻', '🙏🏻', '👑', '🌹', '🔥', '🥑', '❤️', '💯', '💰', '📈', '📝', '🚀', '🐐', '✈️', '⬆️', '🫰', '😄']
         
         # 根据category设置不同参数
         if category == 'green':
@@ -141,7 +142,7 @@ class MasterBot:
             worker_range = (1, 10)
         else:
             # red (默认): 6-11个表情, 每个5-40个
-            emoji_count = random.randint(6, 11)
+            emoji_count = random.randint(6, 12)
             worker_range = (5, 40)
         
         selected_emojis = random.sample(emoji_list, min(emoji_count, len(emoji_list)))
@@ -503,6 +504,7 @@ async def batch_add_reaction(channel_id: int, message_id: int, emoji: str = '�
 
 if __name__ == "__main__":
     # 给指定消息点赞
-    CHANNEL_ID = 1430131207575965838
-    MESSAGE_ID = 1448559543079534602
-    asyncio.run(batch_add_reaction(CHANNEL_ID, MESSAGE_ID, '👍'))
+    # CHANNEL_ID = 1430131207575965838
+    # MESSAGE_ID = 1448559543079534602
+    # asyncio.run(batch_add_reaction(CHANNEL_ID, MESSAGE_ID, '👍'))
+    pass
