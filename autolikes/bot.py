@@ -76,10 +76,10 @@ class MasterBot:
                 await self.master_bot.process_commands(message)
                 return
 
-            if message.channel.id != 1430131207575965838:
-                print("跳过")
-                await self.master_bot.process_commands(message)
-                return
+            # if message.channel.id != 1430131207575965838:
+            #     print("跳过")
+            #     await self.master_bot.process_commands(message)
+            #     return
             
             category = matched_channel.get('category', 'green')
             
