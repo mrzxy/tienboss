@@ -125,12 +125,12 @@ async def on_ready():
     logger.info(f'Logged in as {bot.user}')
     logger.info(f'Bot is ready and listening for messages...')
     logger.info(f'Connected to {len(bot.guilds)} guilds')
-    
+
     # 检查机器人的权限
     logger.info(f'Bot permissions: {bot.intents}')
     logger.info(f'Message content intent: {bot.intents.message_content}')
     logger.info(f'Messages intent: {bot.intents.messages}')
-    
+
     # 列出所有连接的服务器
     if len(bot.guilds) > 0:
         for guild in bot.guilds:
@@ -145,16 +145,186 @@ async def on_ready():
         logger.warning('- Read Messages/View Channels')
         logger.warning('- Send Messages')
         logger.warning('- Read Message History')
-    
+
+    # 同步slash commands到Discord
+    try:
+        logger.info("正在同步slash commands...")
+        synced = await bot.tree.sync()
+        logger.info(f"成功同步 {len(synced)} 个slash commands")
+    except Exception as e:
+        logger.error(f"同步slash commands失败: {e}")
+
     # 启动定时同步任务
     if not scheduled_sync_history.is_running():
         scheduled_sync_history.start()
         logger.info("定时同步历史消息任务已启动（每10秒执行一次）")
-    
+
     # 立即执行一次同步
     await sync_history(bot)
-    
-    
+
+
+
+def parse_time_range(time_str):
+    """
+    解析时间范围字符串，返回对应的时间差
+    支持: 8小时, 24小时, 72小时, 一周前
+    """
+    time_mappings = {
+        '8小时': datetime.timedelta(hours=8),
+        '24小时': datetime.timedelta(hours=24),
+        '72小时': datetime.timedelta(hours=72),
+        '一周': datetime.timedelta(weeks=1)
+    }
+
+    return time_mappings.get(time_str)
+
+
+async def search_messages_in_channels(bot, keyword, time_delta):
+    """
+    搜索所有频道中包含关键字的消息
+    """
+    results = []
+    current_time = datetime.datetime.now(datetime.timezone.utc)
+    start_time = current_time - time_delta
+
+    logger.info(f"搜索参数 - 关键字: {keyword}, 开始时间: {start_time}, 当前时间: {current_time}")
+
+    # 遍历所有服务器
+    total_channels = 0
+    scanned_channels = 0
+    total_messages = 0
+
+    for guild in bot.guilds:
+        logger.info(f"正在搜索服务器: {guild.name}")
+        # 遍历服务器中的所有文本频道
+        for channel in guild.text_channels:
+            total_channels += 1
+            try:
+                # 检查是否有读取消息历史的权限
+                permissions = channel.permissions_for(guild.me)
+                if not permissions.read_message_history:
+                    logger.warning(f"跳过频道（无权限）: {guild.name} - {channel.name}")
+                    continue
+
+                scanned_channels += 1
+                channel_msg_count = 0
+
+                # 获取频道消息历史
+                async for message in channel.history(limit=None, after=start_time):
+                    channel_msg_count += 1
+                    total_messages += 1
+
+                    # 排除bot发送的消息
+                    if message.author.bot:
+                        continue
+
+                    # 检查消息内容是否包含关键字（不区分大小写）
+                    if keyword.lower() in message.content.lower():
+                        logger.info(f"找到匹配消息 - 频道: {channel.name}, 作者: {message.author}, 时间: {message.created_at}")
+                        results.append({
+                            'channel': channel.name,
+                            'guild': guild.name,
+                            'author': str(message.author),
+                            'content': message.content,
+                            'timestamp': message.created_at,
+                            'jump_url': message.jump_url
+                        })
+
+                logger.info(f"频道 {channel.name}: 扫描了 {channel_msg_count} 条消息")
+
+            except discord.Forbidden:
+                logger.warning(f"没有权限访问频道: {guild.name} - {channel.name}")
+            except Exception as e:
+                logger.error(f"搜索频道 {guild.name} - {channel.name} 时出错: {e}")
+
+    logger.info(f"搜索完成 - 总频道: {total_channels}, 已扫描: {scanned_channels}, 总消息数: {total_messages}, 匹配结果: {len(results)}")
+
+    return results
+
+
+def format_search_results(results, keyword, time_str):
+    """
+    格式化搜索结果为易读的消息
+    """
+    if not results:
+        return f"未找到包含关键字「{keyword}」的消息（时间范围: {time_str}）"
+
+    # 按时间倒序排序（最新的在前面）
+    results.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    # 构建结果消息
+    response = f"找到 {len(results)} 条包含关键字「{keyword}」的消息（时间范围: {time_str}）:\n\n"
+
+    for i, result in enumerate(results[:50], 1):  # 限制显示前50条
+        timestamp = result['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        response += f"**{i}.** [{result['guild']} - #{result['channel']}]({result['jump_url']})\n"
+        response += f"   作者: {result['author']} | 时间: {timestamp}\n"
+        response += f"   内容: {result['content'][:100]}{'...' if len(result['content']) > 100 else ''}\n\n"
+
+    if len(results) > 50:
+        response += f"\n*注: 仅显示前50条结果，共找到 {len(results)} 条消息*"
+
+    return response
+
+
+@bot.tree.command(name="查询", description="搜索频道内包含关键字的消息")
+async def search_command(
+    interaction: discord.Interaction,
+    时间: str,
+    关键字: str
+):
+    """
+    查询指令的slash command实现
+    """
+    try:
+        # 解析时间范围
+        time_delta = parse_time_range(时间)
+        if not time_delta:
+            await interaction.response.send_message(
+                f"❌ 不支持的时间范围: {时间}\n请使用以下选项之一:\n- 8小时\n- 24小时\n- 72小时\n- 一周",
+                ephemeral=True
+            )
+            return
+
+        # 发送初始响应（避免超时）
+        await interaction.response.send_message(f"🔍 正在搜索关键字「{关键字}」（时间范围: {时间}）...")
+
+        # 执行搜索
+        results = await search_messages_in_channels(bot, 关键字, time_delta)
+
+        # 格式化结果
+        response = format_search_results(results, 关键字, 时间)
+
+        # Discord消息有2000字符限制，需要分割长消息
+        if len(response) <= 2000:
+            await interaction.followup.send(response)
+        else:
+            # 将消息分割成多个部分
+            chunks = []
+            current_chunk = ""
+
+            for line in response.split('\n'):
+                if len(current_chunk) + len(line) + 1 > 2000:
+                    chunks.append(current_chunk)
+                    current_chunk = line + '\n'
+                else:
+                    current_chunk += line + '\n'
+
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # 发送所有分割的消息
+            for chunk in chunks:
+                await interaction.followup.send(chunk)
+
+        logger.info(f"查询指令执行完成 - 关键字: {关键字}, 时间: {时间}, 结果数: {len(results)}")
+
+    except Exception as e:
+        logger.error(f"处理查询指令时出错: {e}")
+        try:
+            await interaction.followup.send(f"❌ 查询出错: {str(e)}")
+        except:
+            await interaction.response.send_message(f"❌ 查询出错: {str(e)}", ephemeral=True)
 
 
 @bot.event
@@ -162,7 +332,7 @@ async def on_message(message):
     # 忽略机器人自己的消息
     if message.author == bot.user:
         return
-    
+
     print_message_details(message)
     # 确保处理命令（如果你有命令系统）
     await bot.process_commands(message)
@@ -256,6 +426,7 @@ if __name__ == '__main__':
         app_key = app_config.get_discord_token()
         if not app_key:
             raise ValueError("Discord bot token未配置或为空")
+
         
         logger.info(f"使用环境: {app_config.get_environment()}")
         logger.info(f"调试模式: {debug}")
