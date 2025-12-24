@@ -230,7 +230,7 @@ async def search_messages_in_channels(bot, keyword, time_delta):
 
                     # 检查消息内容是否包含关键字（不区分大小写）
                     if keyword.lower() in message.content.lower():
-                        logger.info(f"找到匹配消息 - 频道: {channel.name}, 作者: {message.author}, 时间: {message.created_at}")
+                        # logger.info(f"找到匹配消息 - 频道: {channel.name}, 作者: {message.author}, 时间: {message.created_at}")
                         results.append({
                             'channel': channel.name,
                             'guild': guild.name,
@@ -265,14 +265,14 @@ def format_search_results(results, keyword, time_str):
     # 构建结果消息
     response = f"找到 {len(results)} 条包含关键字「{keyword}」的消息（时间范围: {time_str}）:\n\n"
 
-    for i, result in enumerate(results[:50], 1):  # 限制显示前50条
+    for i, result in enumerate(results[:500], 1):  # 限制显示前500条
         timestamp = result['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         response += f"**{i}.** [{result['guild']} - #{result['channel']}]({result['jump_url']})\n"
         response += f"   作者: {result['author']} | 时间: {timestamp}\n"
         response += f"   内容: {result['content'][:100]}{'...' if len(result['content']) > 100 else ''}\n\n"
 
-    if len(results) > 50:
-        response += f"\n*注: 仅显示前50条结果，共找到 {len(results)} 条消息*"
+    if len(results) > 500:
+        response += f"\n*注: 仅显示前500条结果，共找到 {len(results)} 条消息*"
 
     return response
 
@@ -329,6 +329,7 @@ async def search_command(
             # 发送所有分割的消息 - 只有执行命令的用户可见
             for chunk in chunks:
                 await interaction.followup.send(chunk, ephemeral=False)
+                await asyncio.sleep(1)  # 每条消息之间延迟1秒
 
         logger.info(f"查询指令执行完成 - 关键字: {关键字}, 时间: {时间}, 结果数: {len(results)}")
 
