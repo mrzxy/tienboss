@@ -259,8 +259,8 @@ def format_search_results(results, keyword, time_str):
     if not results:
         return f"未找到包含关键字「{keyword}」的消息（时间范围: {time_str}）"
 
-    # 按时间倒序排序（最新的在前面）
-    results.sort(key=lambda x: x['timestamp'], reverse=True)
+    # 按时间升序排序（最早的在前面）
+    results.sort(key=lambda x: x['timestamp'], reverse=False)
 
     # 构建结果消息
     response = f"找到 {len(results)} 条包含关键字「{keyword}」的消息（时间范围: {time_str}）:\n\n"
@@ -269,7 +269,8 @@ def format_search_results(results, keyword, time_str):
         timestamp = result['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         response += f"**{i}.** [{result['guild']} - #{result['channel']}]({result['jump_url']})\n"
         response += f"   作者: {result['author']} | 时间: {timestamp}\n"
-        response += f"   内容: {result['content'][:100]}{'...' if len(result['content']) > 100 else ''}\n\n"
+        content_preview = result['content'][:100] + ('...' if len(result['content']) > 100 else '')
+        response += f"   内容: **{content_preview}**\n\n"
 
     if len(results) > 500:
         response += f"\n*注: 仅显示前500条结果，共找到 {len(results)} 条消息*"
