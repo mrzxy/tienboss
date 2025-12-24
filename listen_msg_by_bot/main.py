@@ -181,13 +181,24 @@ def parse_time_range(time_str):
 
 async def search_messages_in_channels(bot, keyword, time_delta):
     """
-    搜索所有频道中包含关键字的消息
+    搜索指定频道中包含关键字的消息
     """
     results = []
     current_time = datetime.datetime.now(datetime.timezone.utc)
     start_time = current_time - time_delta
 
+    # 指定要搜索的频道ID列表
+    target_channel_ids = [
+        1321048952405229600,
+        1394484823015424081,
+        1325294881517867018,
+        1383128286196137995,
+        1386580405557395576,
+        1420046304624509060
+    ]
+
     logger.info(f"搜索参数 - 关键字: {keyword}, 开始时间: {start_time}, 当前时间: {current_time}")
+    # logger.info(f"目标频道ID: {target_channel_ids}")
 
     # 遍历所有服务器
     total_channels = 0
@@ -198,13 +209,16 @@ async def search_messages_in_channels(bot, keyword, time_delta):
         logger.info(f"正在搜索服务器: {guild.name}")
         # 遍历服务器中的所有文本频道
         for channel in guild.text_channels:
+            # 只处理指定ID的频道
+            if channel.id not in target_channel_ids:
+                continue
             total_channels += 1
             try:
                 # 检查是否有读取消息历史的权限
-                permissions = channel.permissions_for(guild.me)
-                if not permissions.read_message_history:
-                    logger.warning(f"跳过频道（无权限）: {guild.name} - {channel.name}")
-                    continue
+                # permissions = channel.permissions_for(guild.me)
+                # if not permissions.read_message_history:
+                #     logger.warning(f"跳过频道（无权限）: {guild.name} - {channel.name}")
+                #     continue
 
                 scanned_channels += 1
                 channel_msg_count = 0
@@ -213,10 +227,6 @@ async def search_messages_in_channels(bot, keyword, time_delta):
                 async for message in channel.history(limit=None, after=start_time):
                     channel_msg_count += 1
                     total_messages += 1
-
-                    # 排除bot发送的消息
-                    if message.author.bot:
-                        continue
 
                     # 检查消息内容是否包含关键字（不区分大小写）
                     if keyword.lower() in message.content.lower():
@@ -282,12 +292,15 @@ async def search_command(
         if not time_delta:
             await interaction.response.send_message(
                 f"❌ 不支持的时间范围: {时间}\n请使用以下选项之一:\n- 8小时\n- 24小时\n- 72小时\n- 一周",
-                ephemeral=True
+                ephemeral=False
             )
             return
 
-        # 发送初始响应（避免超时）
-        await interaction.response.send_message(f"🔍 正在搜索关键字「{关键字}」（时间范围: {时间}）...")
+        # 发送初始响应（避免超时）- 只有执行命令的用户可见
+        await interaction.response.send_message(
+            f"🔍 正在搜索关键字「{关键字}」（时间范围: {时间}）...",
+            ephemeral=False
+        )
 
         # 执行搜索
         results = await search_messages_in_channels(bot, 关键字, time_delta)
@@ -297,7 +310,7 @@ async def search_command(
 
         # Discord消息有2000字符限制，需要分割长消息
         if len(response) <= 2000:
-            await interaction.followup.send(response)
+            await interaction.followup.send(response, ephemeral=False)
         else:
             # 将消息分割成多个部分
             chunks = []
@@ -313,9 +326,9 @@ async def search_command(
             if current_chunk:
                 chunks.append(current_chunk)
 
-            # 发送所有分割的消息
+            # 发送所有分割的消息 - 只有执行命令的用户可见
             for chunk in chunks:
-                await interaction.followup.send(chunk)
+                await interaction.followup.send(chunk, ephemeral=False)
 
         logger.info(f"查询指令执行完成 - 关键字: {关键字}, 时间: {时间}, 结果数: {len(results)}")
 
@@ -324,7 +337,7 @@ async def search_command(
         try:
             await interaction.followup.send(f"❌ 查询出错: {str(e)}")
         except:
-            await interaction.response.send_message(f"❌ 查询出错: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ 查询出错: {str(e)}", ephemeral=False)
 
 
 @bot.event
