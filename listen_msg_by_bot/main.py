@@ -194,7 +194,11 @@ async def search_messages_in_channels(bot, keyword, time_delta):
         1325294881517867018,
         1383128286196137995,
         1386580405557395576,
-        1420046304624509060
+        1420046304624509060,
+
+
+        # test
+        1326007139478798447
     ]
 
     logger.info(f"搜索参数 - 关键字: {keyword}, 开始时间: {start_time}, 当前时间: {current_time}")
@@ -266,7 +270,12 @@ def format_search_results(results, keyword, time_str):
     response = f"找到 {len(results)} 条包含关键字「{keyword}」的消息（时间范围: {time_str}）:\n\n"
 
     for i, result in enumerate(results[:500], 1):  # 限制显示前500条
-        timestamp = result['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        # 转换为美东时区（UTC-5 或 UTC-4，根据夏令时）
+        from zoneinfo import ZoneInfo
+        et_tz = ZoneInfo('America/New_York')
+        timestamp_et = result['timestamp'].astimezone(et_tz)
+        timestamp = timestamp_et.strftime('%Y-%m-%d %H:%M:%S %Z')
+
         response += f"**{i}.** [{result['guild']} - #{result['channel']}]({result['jump_url']})\n"
         response += f"   作者: {result['author']} | 时间: {timestamp}\n"
         content_preview = result['content'][:100] + ('...' if len(result['content']) > 100 else '')
