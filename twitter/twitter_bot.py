@@ -13,7 +13,8 @@ from datetime import datetime
 from twitter_api import TwitterAPI
 from accounts import get_account_by_username, get_all_enabled_accounts, TwitterAccount
 from emqx import MQTTClient, MQTTConfig
-from config import API_KEY
+from config import API_KEY, WEBSHARE_API_KEY, PROXY_AUTO_REFRESH, PROXY_REFRESH_INTERVAL
+from proxy_manager import ProxyManager
 
 # 配置日志
 logging.basicConfig(
@@ -30,15 +31,27 @@ logger = logging.getLogger(__name__)
 class TwitterBot:
     """Twitter 多账号管理机器人"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, webshare_api_key: str = None):
         """
         初始化 Twitter 机器人
 
         Args:
             api_key: TwitterAPI.io 的 API 密钥
+            webshare_api_key: Webshare.io 的 API 密钥（可选）
         """
         self.api_key = api_key
         self.mqtt_client: Optional[MQTTClient] = None
+
+        # 代理管理器
+        self.proxy_manager: Optional[ProxyManager] = None
+        if webshare_api_key:
+            logger.info("初始化代理管理器...")
+            self.proxy_manager = ProxyManager(
+                api_key=webshare_api_key,
+                auto_refresh=PROXY_AUTO_REFRESH,
+                refresh_interval=PROXY_REFRESH_INTERVAL
+            )
+            logger.info(f"✓ 代理管理器初始化完成，共 {len(self.proxy_manager.proxies)} 个代理")
 
         # 账号管理：username -> TwitterAPI 实例
         self.twitter_clients: Dict[str, TwitterAPI] = {}
@@ -76,42 +89,78 @@ class TwitterBot:
 
         return success_count > 0
 
-    def _login_account(self, account: TwitterAccount) -> bool:
+    def _login_account(self, account: TwitterAccount, retry_count: int = 3) -> bool:
         """
-        登录单个 Twitter 账号
+        登录单个 Twitter 账号（支持代理自动切换）
 
         Args:
             account: Twitter 账号配置
+            retry_count: 重试次数
 
         Returns:
             bool: 登录成功返回 True
         """
-        try:
-            logger.info(f"正在登录账号: @{account.username}")
+        for attempt in range(retry_count):
+            try:
+                logger.info(f"正在登录账号: @{account.username} (尝试 {attempt + 1}/{retry_count})")
 
-            # 创建 TwitterAPI 实例
-            twitter = TwitterAPI(api_key=self.api_key)
+                # 创建 TwitterAPI 实例
+                twitter = TwitterAPI(api_key=self.api_key)
 
-            # 尝试登录
-            success = twitter.authenticate(
-                user_name=account.username,
-                email=account.email,
-                password=account.password,
-                proxy=account.proxy,
-                totp_secret=account.totp_secret
-            )
+                # 决定使用哪个代理
+                proxy = account.proxy  # 优先使用账号配置的代理
 
-            if success:
-                self.twitter_clients[account.username] = twitter
-                logger.info(f"✓ 账号 @{account.username} 登录成功")
-                return True
-            else:
-                logger.error(f"✗ 账号 @{account.username} 登录失败")
-                return False
+                # 如果账号没有配置代理，或者上次登录失败，使用代理管理器
+                if not proxy and self.proxy_manager:
+                    proxy = self.proxy_manager.get_proxy(username=account.username)
+                    logger.info(f"使用代理管理器分配的代理: {proxy}")
+                elif attempt > 0 and self.proxy_manager:
+                    # 如果不是第一次尝试，切换到新代理
+                    if proxy:
+                        self.proxy_manager.mark_proxy_failed(proxy)
+                    proxy = self.proxy_manager.get_proxy(username=account.username)
+                    logger.info(f"切换到新代理: {proxy}")
 
-        except Exception as e:
-            logger.error(f"✗ 账号 @{account.username} 登录异常: {str(e)}")
-            return False
+                # 检查 proxy 是否为 None（TwitterAPI 要求必须提供 proxy）
+                if not proxy:
+                    logger.error(f"✗ 无法获取可用代理，跳过账号 @{account.username}")
+                    return False
+
+                # 尝试登录
+                success = twitter.authenticate(
+                    user_name=account.username,
+                    email=account.email,
+                    password=account.password,
+                    proxy=proxy,
+                    totp_secret=account.totp_secret
+                )
+
+                if success:
+                    self.twitter_clients[account.username] = twitter
+                    logger.info(f"✓ 账号 @{account.username} 登录成功")
+
+                    # 标记代理成功
+                    if proxy and self.proxy_manager:
+                        self.proxy_manager.mark_proxy_success(proxy)
+
+                    return True
+                else:
+                    logger.error(f"✗ 账号 @{account.username} 登录失败")
+
+                    # 标记代理失败
+                    if proxy and self.proxy_manager:
+                        self.proxy_manager.mark_proxy_failed(proxy)
+
+                    # 如果还有重试次数，等待一下再重试
+                    if attempt < retry_count - 1:
+                        time.sleep(2)
+
+            except Exception as e:
+                logger.error(f"✗ 账号 @{account.username} 登录异常: {str(e)}")
+                if attempt < retry_count - 1:
+                    time.sleep(2)
+
+        return False
 
     def setup_mqtt(self):
         """设置 MQTT 连接"""
@@ -294,7 +343,7 @@ class TwitterBot:
 def main():
     """主函数"""
     # 创建机器人实例
-    bot = TwitterBot(api_key=API_KEY)
+    bot = TwitterBot(api_key=API_KEY, webshare_api_key=WEBSHARE_API_KEY)
 
     # 运行机器人
     bot.run()
