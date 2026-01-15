@@ -354,8 +354,60 @@ async def send_msg_by_mqtt(client, topic, channel, msg, other=None):
     except Exception as e:
         logger.error(f"发送消息时出错: {e}")
         return False
+
+def call_deepseek(content):
+    """同步版本的 deepseek 调用"""
+    try:
+        # 从配置文件获取API key
+        api_key = app_config.get_huoshan_api_key()
+        if not api_key:
+            raise ValueError("火山 API key未配置")
+
+        # 构建HTTP请求
+        url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + api_key
+        }
+
+        payload = {
+            "model": "deepseek-v3-2-251201",  # 使用标准模型名称
+            "messages": [
+                {"role": "user", "content": content}
+            ]
+        }
+
+        # 发送HTTP请求
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+
+        if response.status_code == 200:
+            result = response.json()
+            if 'choices' not in result or len(result["choices"]) == 0:
+                logger.error(f"火山 HTTP请求返回内容为空: {response.status_code}, {response.text}, 原内容: {content}")
+                return None
+            text = result['choices'][0]["message"]['content']
+            logger.info(f"火山 HTTP请求成功，返回长度: {len(text)}")
+            return text
+        else:
+            logger.error(f"火山 HTTP请求失败: {response.status_code}, {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("火山请求超时")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"火山 HTTP请求异常: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"火山请求失败: {e}")
+        return None
 # 示例用法
 if __name__ == "__main__":
-    content = """[22:10]TRUMP: THE BIGGEST DAMAGE TO IRAN NUCLEAR SITES TOOK PLACE FAR BELOW GROUND LEVEL"""
-    result = send_chat_request(content)
-    logger.info(f"Chat结果: {result}")
+    content = """翻译:TRUMP: THE BIGGEST DAMAGE TO IRAN NUCLEAR SITES TOOK PLACE FAR BELOW GROUND LEVEL.
+    结果:"""
+
+    print(content)
+
+    # 直接调用同步函数
+    result = call_deepseek(content)
+    print(f"Chat结果: {result}")

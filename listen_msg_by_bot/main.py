@@ -11,6 +11,7 @@ from t3_channel import process_t3, update_tt3_db
 from trump_news_channel import process_trump_news
 from chatting_room_channel import process_chatting_room_news
 from helper import print_message_details,get_logger
+from tuite_channel import process_tuite,process_tradecatalysts
 # 加载配置
 app_config = get_config()
 # 验证配置
@@ -424,6 +425,15 @@ async def on_message(message):
         msg = process_t3(message)
         # 同时保存TT3消息到数据库
         update_tt3_db(message)
+    # tuite频道
+    # my 1458044545185873931
+    elif message.channel.id in [1458044545185873931, 1448151507404062720]:
+        process_tuite(client, message)
+        return
+    elif message.channel.id in [1420046304624509060]:
+        process_tradecatalysts(client, message)
+        return
+
     elif 'diamond-only-stock' in message.channel.name:
         update_tt3_db(message)
         return

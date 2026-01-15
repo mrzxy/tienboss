@@ -94,7 +94,10 @@ class Config:
     def get_anthropic_api_key(self) -> str:
         """获取Anthropic API key"""
         return self.get('anthropic.api_key', '')
-    
+    def get_huoshan_api_key(self) -> str:
+        """获取Anthropic API key"""
+        return self.get('huoshan.api_key', '')
+         
     def is_debug(self) -> bool:
         """是否为调试模式"""
         return self.get('app.environment', 'test') == 'test'
