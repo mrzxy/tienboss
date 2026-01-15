@@ -223,15 +223,15 @@ class TwitterBot:
             data = json.loads(payload)
 
             # 验证必需字段
-            if 'username' not in data:
-                logger.error("消息缺少 username 字段")
+            if 'user_name' not in data:
+                logger.error("消息缺少 user_name 字段")
                 return
 
             if 'text' not in data:
                 logger.error("消息缺少 text 字段")
                 return
 
-            username = data['username']
+            username = data['user_name']
             text = data['text']
             media_ids = data.get('media_ids')
             reply_to_tweet_id = data.get('reply_to_tweet_id')
