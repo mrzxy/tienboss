@@ -238,7 +238,12 @@ class TwitterBot:
             attachment_url = data.get('attachment_url')
             community_id = data.get('community_id')
             is_note_tweet = data.get('is_note_tweet', False)
-            proxy = "http://karkjwlc:4h4e3wr165qr@192.53.66.242:6348"
+
+            # 从消息中获取 proxy，如果没有则从代理管理器获取
+            proxy = data.get('proxy')
+            if not proxy and self.proxy_manager:
+                proxy = self.proxy_manager.get_proxy(username=username)
+                logger.info(f"使用代理管理器分配的代理: {proxy}")
 
             # 查找对应的 Twitter 客户端
             twitter_client = self.twitter_clients.get(username)

@@ -189,6 +189,7 @@ class TwitterAPI:
 
             if response.status_code == 200 or response.status_code == 201:
                 tweet_data = response.json()
+                print(tweet_data)
                 print(f"✓ 推文发布成功!")
                 print(f"  推文 ID: {tweet_data.get('id', 'N/A')}")
                 print(f"  内容: {text[:50]}..." if len(text) > 50 else f"  内容: {text}")
