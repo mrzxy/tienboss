@@ -163,3 +163,7 @@ def contains_chinese(text):
     # \u4e00-\u9fff 是中文字符的 Unicode 范围
     chinese_pattern = re.compile(r'[\u4e00-\u9fff]+')
     return bool(chinese_pattern.search(text))
+
+def isIllicitWord(content):
+    keywords = ['习近平','李强']
+    return any(keyword in content for keyword in keywords)

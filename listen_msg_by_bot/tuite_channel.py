@@ -1,7 +1,7 @@
 from config import get_config
 from chat import call_deepseek, send_msg_by_mqtt, send_chat_request_by_trump_news, send_msg_by_webhook_sync, extract_image_urls
 import datetime
-from helper import get_logger,contains_chinese
+from helper import get_logger,contains_chinese,isIllicitWord
 import json
 
 # 加载配置
@@ -11,6 +11,10 @@ logger = get_logger(__name__, app_config.get_logging_config())
 
 
 def process_tuite(client, message):
+  if isIllicitWord(message.content):
+    logger.info(f"包含违禁词，跳过发送: {message.content[:50]}...")
+    return
+
   tip = f"翻译成中文: {message.content}.\n结果:"
   result = call_deepseek(tip)
   if result == "":
@@ -26,6 +30,10 @@ def process_tuite(client, message):
 def process_tradecatalysts(client, message):
   # 关键词列表
   keywords = ['美', '特朗普', '哈塞特', '鲍威尔', '加密', '比特币', '以太坊', '跌', '涨']
+  if isIllicitWord(message.content):
+    logger.info(f"包含违禁词，跳过发送: {message.content[:50]}...")
+    return
+
 
   # 检查消息内容是否包含任一关键词
   if not any(keyword in message.content for keyword in keywords):
