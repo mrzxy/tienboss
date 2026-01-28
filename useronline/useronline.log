@@ -56,3 +56,63 @@
 2026-01-28 17:47:18 - WARNING - [账号 0] 连接已断开: umi3724
 2026-01-28 17:47:19 - INFO - Gateway has successfully RESUMED session fb1db5f02d26f0e4c64cd0ec3fdaa1c8.
 2026-01-28 17:47:19 - INFO - 程序已退出
+2026-01-28 17:59:21 - ERROR - 程序启动失败: 'Config' object has no attribute 'get_tokens'
+2026-01-28 18:00:42 - INFO - 加载了 2 个 Discord token
+2026-01-28 18:00:42 - INFO - 初始化代理管理器...
+2026-01-28 18:00:42 - INFO - 正在从 webshare.io 获取代理列表...
+2026-01-28 18:00:43 - INFO - ✓ 成功获取 1 个代理
+2026-01-28 18:00:43 - INFO - 代理管理器初始化完成，可用代理: 1 个
+2026-01-28 18:00:43 - INFO - ============================================================
+2026-01-28 18:00:43 - INFO - 初始化账号在线管理器: 总账号数 2, 使用代理 1 个
+2026-01-28 18:00:43 - INFO - ============================================================
+2026-01-28 18:00:43 - INFO - 开始启动 2 个账号...
+2026-01-28 18:00:43 - WARNING - [账号 0] discord.Intents 不可用，使用默认配置
+2026-01-28 18:00:43 - INFO - [账号 0] 使用代理: 9.142.203.218:6385
+2026-01-28 18:00:43 - INFO - [账号 0] 正在启动...
+2026-01-28 18:00:43 - INFO - Logging in using static token.
+2026-01-28 18:00:45 - INFO - ============================================================
+2026-01-28 18:00:45 - INFO - 所有账号已启动
+2026-01-28 18:00:45 - INFO - ============================================================
+2026-01-28 18:00:45 - WARNING - [账号 1] discord.Intents 不可用，使用默认配置
+2026-01-28 18:00:45 - INFO - [账号 1] 不使用代理
+2026-01-28 18:00:45 - INFO - [账号 1] 正在启动...
+2026-01-28 18:00:45 - INFO - Logging in using static token.
+2026-01-28 18:00:46 - INFO - Found user agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36", build number 489757.
+2026-01-28 18:00:46 - INFO - Found TLS fingerprint target "chrome142".
+2026-01-28 18:00:46 - INFO - Found user agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36", build number 489757.
+2026-01-28 18:00:46 - INFO - Found TLS fingerprint target "chrome142".
+2026-01-28 18:00:49 - INFO - Connected to Gateway (session ID: 3abbb203272a54f863b8aceb5f668e56).
+2026-01-28 18:00:50 - INFO - [账号 1] ✓ 已登录: mikeysbodevysdemai (ID: 1163528680719523890)
+2026-01-28 18:00:50 - INFO - [账号 1] 可访问 2 个服务器
+2026-01-28 18:00:51 - INFO - Connected to Gateway (session ID: b3bd4266ab40beff0afaa13fd31ffcfd).
+2026-01-28 18:00:52 - INFO - [账号 0] ✓ 已登录: xeqqzk971ssvvqg (ID: 1163528680706936985)
+2026-01-28 18:00:52 - INFO - [账号 0] 可访问 2 个服务器
+2026-01-28 18:00:59 - INFO - Gateway received close code None and reason 'Connection closed.'.
+2026-01-28 18:00:59 - INFO - Gateway received close code None and reason 'Connection closed.'.
+2026-01-28 18:00:59 - WARNING - [账号 0] 连接已断开: xeqqzk971ssvvqg
+2026-01-28 18:00:59 - WARNING - [账号 1] 连接已断开: mikeysbodevysdemai
+2026-01-28 18:01:00 - INFO - Gateway has successfully RESUMED session 3abbb203272a54f863b8aceb5f668e56.
+2026-01-28 18:01:01 - INFO - 程序已退出
+2026-01-28 18:01:01 - INFO - 正在停止所有账号...
+2026-01-28 18:01:01 - ERROR - [账号 0] 停止失败: no running event loop
+2026-01-28 18:01:01 - ERROR - [账号 1] 停止失败: no running event loop
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-1' coro=<main() done, defined at /Users/zxy/Project/xianyu/blackbox/useronline/main.py:250> wait_for=<_GatheringFuture pending cb=[Task.task_wakeup()]> cb=[gather.<locals>._done_callback() at /opt/anaconda3/envs/py3.12/lib/python3.12/asyncio/tasks.py:767]>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='client_1' coro=<UserOnlineManager.start_client() running at /Users/zxy/Project/xianyu/blackbox/useronline/main.py:162> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[gather.<locals>._done_callback() at /opt/anaconda3/envs/py3.12/lib/python3.12/asyncio/tasks.py:767, gather.<locals>._done_callback() at /opt/anaconda3/envs/py3.12/lib/python3.12/asyncio/tasks.py:767]>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='client_0' coro=<UserOnlineManager.start_client() running at /Users/zxy/Project/xianyu/blackbox/useronline/main.py:162> wait_for=<Future cancelled> cb=[gather.<locals>._done_callback() at /opt/anaconda3/envs/py3.12/lib/python3.12/asyncio/tasks.py:767, gather.<locals>._done_callback() at /opt/anaconda3/envs/py3.12/lib/python3.12/asyncio/tasks.py:767]>
+2026-01-28 18:01:01 - ERROR - [账号 1] ✗ 连接失败 (尝试 1/5): Event loop is closed
+2026-01-28 18:01:01 - INFO - [账号 1] 将在 5.0 秒后重试...
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='WebSocket-0x10741a020-read' coro=<AsyncWebSocket._read_loop() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/curl_cffi/requests/websockets.py:1038> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='WebSocket-0x10741a020-write' coro=<AsyncWebSocket._write_loop() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/curl_cffi/requests/websockets.py:1170> wait_for=<Future cancelled>>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-25' coro=<KeepAliveHandler.run() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/discord/gateway.py:159> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='WebSocket-0x10741a110-read' coro=<AsyncWebSocket._read_loop() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/curl_cffi/requests/websockets.py:1038> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='WebSocket-0x10741a110-write' coro=<AsyncWebSocket._write_loop() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/curl_cffi/requests/websockets.py:1170> wait_for=<Future cancelled>>
+2026-01-28 18:01:01 - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-26' coro=<KeepAliveHandler.run() done, defined at /opt/anaconda3/envs/py3.12/lib/python3.12/site-packages/discord/gateway.py:159> wait_for=<Future pending cb=[Task.task_wakeup()]>>
