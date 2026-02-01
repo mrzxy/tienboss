@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(python3:*)",
+      "Bash(conda activate:*)",
+      "Bash(source:*)",
+      "Bash(conda run:*)",
+      "Bash(echo:*)",
+      "Bash(/opt/anaconda3/bin/conda run:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

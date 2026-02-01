@@ -127,20 +127,24 @@ whitelist_users = ['DavidK', 'woodman', 'champ', 'joelsg1']
 # 主题映射配置
 topic_map = {
     "joelsg1": {
-        "topic": "lis-msg/rickmarch",
-        "channel": "chatting-room"
+        "topic": "lis-msg-v2",
+        "sender": "rickmarch",
+        "target_id": "1321046672712929280/1394484823015424081",
     },
     "champ": {
-        "topic": "lis-msg/dp",
-        "channel": "chatting-room"
+        "topic": "lis-msg-v2",
+        "sender": "dp",
+        "target_id": "1321046672712929280/1394484823015424081",
     },
     "DavidK": {
-        "topic": "lis-msg/kiraturner",
-        "channel": "chatting-room"
+        "topic": "lis-msg-v2",
+        "sender": "kiraturner",
+        "target_id": "1321046672712929280/1394484823015424081"
     },
     "woodman": {
-        "topic": "lis-msg/jasonwood",
-        "channel": "chatting-room"
+        "topic": "lis-msg-v2",
+        "sender": "jason_wood",
+        "target_id": "1321046672712929280/1394484823015424081"
     }
 }
 
@@ -201,8 +205,9 @@ def send_post_to_mqtt(client, post):
     author = post.get('author', '').strip()
     if debug:
       mapping = {
-        "topic": "lis-msg/qiyu",
-        "channel": "rogertest"
+        "topic": "lis-msg-v2",
+        "sender": "paul",
+        "target_id": "1321313424717774949/1466080854274080818"
       }
     else:
       mapping = topic_map.get(author)
@@ -225,7 +230,8 @@ def send_post_to_mqtt(client, post):
 
     # 构造消息数据
     message_data = {
-        "channel": mapping["channel"],
+        "target_id": mapping["target_id"],
+        "sender": mapping["sender"],
         "content": content,
     }
     

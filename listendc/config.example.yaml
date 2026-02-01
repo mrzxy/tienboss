@@ -1,0 +1,68 @@
+# Discord监听器配置文件示例
+
+# Bot配置（可选）
+bot_token: YOUR_BOT_TOKEN_HERE
+bot_channels:
+  - channel_id_1
+  - channel_id_2
+
+# User监听配置（可选）
+# 每个账号可以监听多个服务器/频道
+# 格式: 账号名: [监听目标列表]
+# 监听目标格式: "server_id/channel_id"
+user_listeners:
+  account1:  # 使用account1账号监听
+    - "1321313424717774949/1415604571597963404"
+    - "1321313424717774949/1415604571597963405"
+  account2:  # 使用account2账号监听
+    - "9876543210/1234567890"
+    - "9876543210/9999999999"
+
+# MQTT配置
+mqtt:
+  enabled: true
+  broker: localhost  # 或 your-broker.emqxsl.com
+  port: 8883         # TLS端口，非TLS使用1883
+  username: ""       # MQTT用户名
+  password: ""       # MQTT密码
+  topic: lis-msg-v2  # 订阅的主题
+  qos: 1             # 消息质量等级 0/1/2
+  client_id: discord_listener
+
+  # SSL/TLS配置
+  use_tls: true              # 是否启用TLS
+  ca_certs: emqxsl-ca.crt   # CA证书路径
+  certfile: null             # 客户端证书（双向认证）
+  keyfile: null              # 客户端密钥（双向认证）
+  tls_insecure: false        # 跳过证书验证（不推荐）
+
+  # 重连配置
+  auto_reconnect: true       # 启用自动重连
+  reconnect_min_delay: 1     # 最小重连延迟（秒）
+  reconnect_max_delay: 120   # 最大重连延迟（秒）
+  keepalive: 60              # 心跳间隔（秒）
+
+# Discord用户账号配置
+# sender字段对应这里的key（dp, rickmarch等）
+user_accounts:
+  dp:
+    token: YOUR_USER_TOKEN_HERE
+    name: 主账号
+
+  account2:
+    token: YOUR_USER_TOKEN_HERE_2
+    name: 备用账号
+
+# 日志配置
+log_level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_file: discord_listener.log
+
+# 数据库配置（扩展功能）
+database:
+  enabled: false
+  path: messages.db
+
+# Webhook配置（扩展功能）
+webhook:
+  enabled: false
+  url: ""
