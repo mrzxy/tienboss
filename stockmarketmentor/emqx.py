@@ -22,7 +22,7 @@ class ConnectionState(Enum):
 @dataclass
 class MQTTConfig:
     """MQTT配置类"""
-    broker: str = "f24a5dcf.ala.cn-hangzhou.emqxsl.cn"
+    broker: str = "zf1f691f.ala.us-east-1.emqxsl.com"
     port: int = 8883
     username: str = "dcaccount"
     password: str = "f24a5dcf123"
