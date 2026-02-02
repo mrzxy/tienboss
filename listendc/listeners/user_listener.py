@@ -121,6 +121,23 @@ class UserListener:
         self._send_mqtt_message(payload) 
 
 
+    async def procContent(self, content):
+        """处理消息内容，移除Discord角色提及等特殊标记
+
+        Args:
+            content: 原始消息内容
+
+        Returns:
+            str: 处理后的内容
+        """
+        if not content:
+            return content
+
+        # 移除角色提及标记 <@&任意字符>，支持多个
+        content = re.sub(r'<@&[^>]+>', '', content)
+
+        return content
+
 
     async def procShunge(self, message):
         """处理Shunge频道的特殊逻辑
@@ -128,7 +145,7 @@ class UserListener:
         Args:
             message: Discord消息对象
         """
-        content = message.content
+        content = await self.procContent(message.content)
 
         # 规范化换行符
         content = content.replace('\n', '\r\n')
@@ -163,7 +180,8 @@ class UserListener:
             'scam',
             'schemes',
             '杀猪盘',
-            'fraudulent'
+            'fraudulent',
+            'brother shun',
         ]
 
         should_ignore = any(keyword.lower() in en_content.lower() for keyword in ignore_keywords)
@@ -452,8 +470,7 @@ class UserListener:
             self.logger.debug(f"过滤bot消息: {message.author}")
             return
 
-        # 获取消息内容
-        content = message.content
+        content = await self.procContent(message.content)
 
         # 规则2: 过滤包含"live voice"的行（不区分大小写）
         if content:
