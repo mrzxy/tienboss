@@ -207,7 +207,8 @@ class Application:
 
             # 创建监听器，传入MQTT客户端和配置
             account_name = account_info.get('name', account_id)
-            user_listener = UserListener(token, channels, mqtt_client, mqtt_config)
+            anthropic_config = self.config.get_anthropic_config()
+            user_listener = UserListener(token, channels, mqtt_client, mqtt_config, anthropic_config)
             self.tasks.append(user_listener.start())
             listener_count += 1
 

@@ -102,3 +102,7 @@ class Config:
             'level': self.get('log_level', 'INFO'),
             'file': self.get('log_file', 'discord_listener.log')
         }
+
+    def get_anthropic_config(self):
+        """获取Anthropic API配置"""
+        return self.get('anthropic', {})
