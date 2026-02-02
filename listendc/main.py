@@ -124,8 +124,11 @@ class Application:
                 import paho.mqtt.client as mqtt
                 import ssl
                 import os
+                import uuid
 
-                mqtt_client = mqtt.Client(client_id='user_listener_sender')
+                # 使用UUID生成唯一的client_id，避免多个UserListener冲突
+                unique_client_id = f'user_listener_sender_{uuid.uuid4().hex[:8]}'
+                mqtt_client = mqtt.Client(client_id=unique_client_id)
 
                 # 设置认证
                 username = mqtt_config.get('username', '')
@@ -162,7 +165,7 @@ class Application:
                 mqtt_client.connect(broker, port, keepalive=60)
                 mqtt_client.loop_start()
 
-                self.logger.info(f"为UserListener创建MQTT发送客户端: {broker}:{port} (TLS: {mqtt_config.get('use_tls', False)})")
+                self.logger.info(f"为UserListener创建MQTT发送客户端: {broker}:{port} (TLS: {mqtt_config.get('use_tls', False)}, ClientID: {unique_client_id})")
             except Exception as e:
                 self.logger.warning(f"创建MQTT客户端失败: {e}，UserListener将无法发送MQTT消息")
                 mqtt_client = None

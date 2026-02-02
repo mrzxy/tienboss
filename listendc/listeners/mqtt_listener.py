@@ -40,7 +40,11 @@ class MQTTListener:
         self.password = config.get('password', '')
         self.topic = config.get('topic', 'lis-msg-v2')
         self.qos = config.get('qos', 1)
-        self.client_id = config.get('client_id', 'discord_listener')
+
+        # 生成唯一的client_id避免冲突
+        import uuid
+        client_id_prefix = config.get('client_id_prefix', config.get('client_id', 'discord_listener'))
+        self.client_id = f"{client_id_prefix}_{uuid.uuid4().hex[:8]}"
 
         # SSL/TLS配置
         self.use_tls = config.get('use_tls', False)
@@ -277,7 +281,7 @@ class MQTTListener:
             connection_type = "TLS" if self.use_tls else "TCP"
             self.logger.info(
                 f"连接到MQTT Broker ({connection_type}): "
-                f"{self.broker}:{self.port}"
+                f"{self.broker}:{self.port}, ClientID: {self.client_id}"
             )
 
             self.mqtt_client.connect(
