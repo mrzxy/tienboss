@@ -394,37 +394,37 @@ async def on_message(message):
             msg['webhook_url2'] = 'https://discord.com/api/webhooks/1387993663837310996/Kuov6iYyG8nRaHzHjCaZcVbxlRvNQ82WwoXncU9i_e9sfQxuosgAgX919R22mDNMQQqO'
     # elif 'trade-alerts' in message.channel.name:
     #     msg['webhook_url'] = 'https://discord.com/api/webhooks/1382589146157289483/7Wds1Kt90n3qrsoMa_zAniHr1vd-Vr6wW3e6JzpHtvi7kBmj_9wFy8Jt3cV2CfZ-_Jc7'
-    elif 'heisen' in message.channel.name:
-        msg['topic'] = 'lis-msg/jasonwood'
-        msg['channel'] = 'craig-comments'
-        msg['mqtt'] = True
-        if debug:
-            msg['topic'] = 'lis-msg/qiyu'
+    # elif 'heisen' in message.channel.name:
+    #     msg['topic'] = 'lis-msg/jasonwood'
+    #     msg['channel'] = 'craig-comments'
+    #     msg['mqtt'] = True
+    #     if debug:
+    #         msg['topic'] = 'lis-msg/qiyu'
 
 
-        # content = message.content
-        content = await asyncio.to_thread(send_chat_request_by_Heisen, message.content)
+    #     # content = message.content
+    #     content = await asyncio.to_thread(send_chat_request_by_Heisen, message.content)
         
-        # 如果chat返回了结果，可以在这里处理
-        if content:
-            images = extract_image_urls(message.content)
-            if len(images) > 0:
-                logger.info(f"提取到的图片: {len(images)}")
-                for image in images:
-                    content = content + f"[.]({image})"
+    #     # 如果chat返回了结果，可以在这里处理
+    #     if content:
+    #         images = extract_image_urls(message.content)
+    #         if len(images) > 0:
+    #             logger.info(f"提取到的图片: {len(images)}")
+    #             for image in images:
+    #                 content = content + f"[.]({image})"
 
 
-        msg['content'] = content
+    #     msg['content'] = content
     elif 'chatting-room' in message.channel.name:
         msg = process_chatting_room_news(message)
         return
     elif 'trump-news' in message.channel.name:
         msg = process_trump_news(message)
         return
-    elif 'tt3' in message.channel.name:
-        msg = process_t3(message)
-        # 同时保存TT3消息到数据库
-        update_tt3_db(message)
+    # elif 'tt3' in message.channel.name:
+    #     msg = process_t3(message)
+    #     # 同时保存TT3消息到数据库
+    #     update_tt3_db(message)
     # tuite频道
     # my 1458044545185873931
     elif message.channel.id in [1458044545185873931, 1448151507404062720]:
