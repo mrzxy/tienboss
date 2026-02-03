@@ -122,7 +122,7 @@ last_ts = int(time.time())  # 当前时间戳作为初始值
 if debug:
     last_ts = 1760707734
 # 白名单用户
-whitelist_users = ['DavidK', 'woodman', 'champ', 'joelsg1']
+whitelist_users = ['DavidK', 'woodman', 'champ', 'joelsg1', "DAN"]
 
 # 主题映射配置
 topic_map = {
