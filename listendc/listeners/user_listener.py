@@ -99,6 +99,8 @@ class UserListener:
         self.logger.info(log_msg)
 
         # 对特定频道进行特殊处理
+        # 1286023151532114002 brando-commentary
+        # 1286022517869514874 brandos-trade-alerts 
         if message.channel.id == 1286023151532114002 or message.channel.id == 1286022517869514874:
             await self.procCommentary(message)
             return
@@ -181,13 +183,16 @@ class UserListener:
             'schemes',
             '杀猪盘',
             'fraudulent',
-            'brother shun',
         ]
 
         should_ignore = any(keyword.lower() in en_content.lower() for keyword in ignore_keywords)
         if should_ignore:
             self.logger.info(f'内容包含敏感关键字，已忽略: {en_content}')
             return
+
+        # 移除 "Brother Shun" 或 "Brother Shun."（忽略大小写）
+        en_content = re.sub(r'Brother\s+Shun\.?', '', en_content, flags=re.IGNORECASE)
+        en_content = en_content.strip()
 
         # 发布英文消息到MQTT
         payload_en = {
@@ -466,9 +471,9 @@ class UserListener:
             message: Discord消息对象
         """
         # 规则1: 过滤bot发送的消息
-        if message.author.bot:
-            self.logger.debug(f"过滤bot消息: {message.author}")
-            return
+        # if message.author.bot:
+        #     self.logger.info(f"过滤bot消息: {message.author}")
+        #     return
 
         content = await self.procContent(message.content)
 
