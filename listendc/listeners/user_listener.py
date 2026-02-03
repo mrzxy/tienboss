@@ -168,7 +168,6 @@ class UserListener:
 
         # 如果en_content开头是"shunge"，替换成空
         if en_content and en_content.lower().startswith('shunge'):
-            import re
             en_content = re.sub(r'^shunge', '', en_content, flags=re.IGNORECASE)
 
         # 检查违禁关键字
