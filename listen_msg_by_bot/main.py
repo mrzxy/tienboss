@@ -427,12 +427,12 @@ async def on_message(message):
     #     update_tt3_db(message)
     # tuite频道
     # my 1458044545185873931
-    elif message.channel.id in [1458044545185873931, 1448151507404062720]:
-        process_tuite(client, message)
-        return
-    elif message.channel.id in [1420046304624509060]:
-        process_tradecatalysts(client, message)
-        return
+    # elif message.channel.id in [1458044545185873931, 1448151507404062720]:
+    #     process_tuite(client, message)
+    #     return
+    # elif message.channel.id in [1420046304624509060]:
+    #     process_tradecatalysts(client, message)
+    #     return
 
     elif 'diamond-only-stock' in message.channel.name:
         update_tt3_db(message)
