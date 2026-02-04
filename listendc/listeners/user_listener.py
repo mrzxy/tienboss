@@ -130,9 +130,8 @@ class UserListener:
             # profs-longterm-action
             1377288801235239003: "1321092503721611335/1430131171433386026",
         }
-        if message.channel.id not in forwordMap {
+        if message.channel.id not in forwordMap:
             return
-        }
 
         # 转成中文
         if message.channel.id in [1440354561712721941, 1409620660946337972, 1029105372797096068]:
