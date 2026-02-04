@@ -146,7 +146,7 @@ class UserListener:
         payload = {
             "sender": "professorr",
             "target_id": forwordMap[message.channel.id],
-            "content": message.content,
+            "content": content,
             "attachments": [att.url for att in message.attachments]
         }
 
