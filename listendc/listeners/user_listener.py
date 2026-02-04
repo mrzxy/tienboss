@@ -108,6 +108,52 @@ class UserListener:
         elif message.channel.id == 1072731733402865714 or message.channel.id == 1467778640132575369:
             await self.procShunge(message)
             return
+        
+        elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003]:
+            await self.procproFessorrChannel(message)
+            return
+
+    async def procproFessorrChannel(self, message):
+        content = await self.procContent(message.content) 
+
+        forwordMap = {
+            # profs-equitytrades🚨o
+            1029055168425246761: "1321092503721611335/1430131156258652283",
+            # profs-trade_writeups
+            1409620660946337972: "1321092503721611335/1430131189523419217",
+            # broader-market
+            1029105372797096068: "1321092503721611335/1430131180795068536",
+            # charts-watchlist-notes
+            1440354561712721941: "1321092503721611335/1444864183706456286",
+            # weekly-picks:
+            1084536050522804354: "1321092503721611335/1430131197979394168",
+            # profs-longterm-action
+            1377288801235239003: "1321092503721611335/1430131171433386026",
+        }
+        if message.channel.id not in forwordMap {
+            return
+        }
+
+        # 转成中文
+        if message.channel.id in [1440354561712721941, 1409620660946337972, 1029105372797096068]:
+            trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。")
+            if not trans.get('success'):
+                self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
+                return
+
+            content = trans.get('data', {}).get('en_content', '')
+
+        payload = {
+            "sender": "professorr",
+            "target_id": forwordMap[message.channel.id],
+            "content": message.content,
+            "attachments": [att.url for att in message.attachments]
+        }
+
+        # 发送到MQTT
+        self._send_mqtt_message(payload) 
+        self.logger.info(f"发送 professorr 消息到 {forwordMap[message.channel.id]}")
+
 
         # 可以在这里添加更多处理逻辑
         # await self.on_message_received(info)
