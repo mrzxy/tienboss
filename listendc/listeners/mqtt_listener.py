@@ -305,7 +305,7 @@ class MQTTListener:
     async def _monitor_loop(self):
         """监控循环 - 定期输出状态信息"""
         last_status_time = time.time()
-        status_interval = 600  # 每5分钟输出一次状态
+        status_interval = 1800
 
         while self.running:
             await asyncio.sleep(5)
