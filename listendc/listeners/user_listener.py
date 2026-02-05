@@ -290,11 +290,7 @@ class UserListener:
         Returns:
             dict: 翻译结果 {'success': bool, 'data': {'en_content': str, 'cn_content': str}, 'msg': str}
         """
-        if not self.contains_chinese(content):
-            return {
-                'success': True,
-                'data': {'en_content': content, 'cn_content': content}
-            }
+
 
         # 从配置读取API设置
         api_key = self.anthropic_config.get('api_key', '')
