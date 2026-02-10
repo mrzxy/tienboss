@@ -134,6 +134,7 @@ class UserListener:
             return
 
         # 转成中文
+        isSendX = False
         if message.channel.id in [1440354561712721941, 1409620660946337972, 1029105372797096068]:
             trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。")
             if not trans.get('success'):
@@ -141,6 +142,7 @@ class UserListener:
                 return
 
             content = trans.get('data', {}).get('en_content', '')
+            isSendX = True
 
         payload = {
             "sender": "professorr",
@@ -152,6 +154,14 @@ class UserListener:
         # 发送到MQTT
         self._send_mqtt_message(payload) 
         self.logger.info(f"发送 professorr 消息到 {forwordMap[message.channel.id]}")
+
+
+        if isSendX:
+            self._send_mqtt_message({
+                "user_name": "professorr_pvt",
+                "text": content,
+                "files": [att.url for att in message.attachments]
+            }, "/x/post")
 
 
         # 可以在这里添加更多处理逻辑
@@ -212,8 +222,6 @@ class UserListener:
         en_content = trans.get('data', {}).get('en_content', '')
 
         # 如果en_content开头是"shunge"，替换成空
-        if en_content and en_content.lower().startswith('shunge'):
-            en_content = re.sub(r'^shunge', '', en_content, flags=re.IGNORECASE)
 
         # 检查违禁关键字
         ignore_keywords = [
@@ -236,6 +244,8 @@ class UserListener:
 
         # 移除 "Brother Shun" 或 "Brother Shun."（忽略大小写）
         en_content = re.sub(r'Brother\s+Shun\.?', '', en_content, flags=re.IGNORECASE)
+        en_content = re.sub(r'^shun ge', '', en_content, flags=re.IGNORECASE)
+        en_content = re.sub(r'^shunge', '', en_content, flags=re.IGNORECASE)
         en_content = en_content.strip()
 
         # 发布英文消息到MQTT
@@ -546,7 +556,7 @@ class UserListener:
         # 发送到MQTT
         self._send_mqtt_message(payload)
 
-    def _send_mqtt_message(self, payload):
+    def _send_mqtt_message(self, payload, topic = None):
         """发送MQTT消息
 
         Args:
@@ -556,8 +566,10 @@ class UserListener:
             self.logger.warning("MQTT客户端未配置，无法发送消息")
             return
 
-        try:
+        if topic is None:
             topic = self.mqtt_config.get('topic', 'lis-msg-v2')
+
+        try:
             qos = self.mqtt_config.get('qos', 1)
 
             result = self.mqtt_client.publish(

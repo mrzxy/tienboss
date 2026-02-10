@@ -7,8 +7,12 @@ import json
 import logging
 import time
 import sys
+import os
+import tempfile
+import requests
 from typing import Dict, Optional
 from datetime import datetime
+from urllib.parse import urlparse
 
 from twitter_api import TwitterAPI
 from accounts import get_account_by_username, get_all_enabled_accounts, TwitterAccount
@@ -200,6 +204,154 @@ class TwitterBot:
         self.mqtt_client.subscribe("/x/post", callback=self._handle_post_message)
         logger.info("✓ 已订阅主题: /x/post")
 
+    def _process_and_upload_files(self, files: list, twitter_client, proxy: Optional[str] = None) -> list:
+        """
+        处理文件列表（本地文件或 URL），上传并返回 media_ids
+
+        Args:
+            files: 文件路径或 URL 列表
+            twitter_client: TwitterAPI 客户端实例
+            proxy: 可选的代理服务器
+
+        Returns:
+            list: 上传成功的 media_id 列表
+        """
+        if not files:
+            return []
+
+        logger.info(f"检测到 {len(files)} 个文件需要上传")
+        uploaded_media_ids = []
+        temp_dir = None
+        downloaded_files = []
+
+        try:
+            # 创建临时目录用于存放下载的文件
+            temp_dir = tempfile.mkdtemp(prefix='twitter_media_')
+
+            for file_or_url in files:
+                file_path = None
+
+                # 判断是 URL 还是本地文件路径
+                if file_or_url.startswith('http://') or file_or_url.startswith('https://'):
+                    # 是 URL，需要先下载
+                    logger.info(f"检测到 URL: {file_or_url}")
+                    file_path = self._download_file_from_url(file_or_url, temp_dir)
+
+                    if file_path:
+                        downloaded_files.append(file_path)
+                    else:
+                        logger.error(f"✗ 无法下载文件: {file_or_url}")
+                        continue
+                else:
+                    # 是本地文件路径
+                    if os.path.exists(file_or_url):
+                        file_path = file_or_url
+                        logger.info(f"使用本地文件: {file_path}")
+                    else:
+                        logger.error(f"✗ 本地文件不存在: {file_or_url}")
+                        continue
+
+                # 上传文件
+                if file_path:
+                    logger.info(f"上传文件: {os.path.basename(file_path)}")
+                    media_id = twitter_client.upload_media(
+                        file_path=file_path,
+                        proxy=proxy
+                    )
+
+                    if media_id:
+                        uploaded_media_ids.append(media_id)
+                        logger.info(f"✓ 文件上传成功: {os.path.basename(file_path)} -> {media_id}")
+                    else:
+                        logger.error(f"✗ 文件上传失败: {file_path}")
+
+            # 输出统计信息
+            if uploaded_media_ids:
+                logger.info(f"✓ 共上传 {len(uploaded_media_ids)} 个文件，media_ids: {uploaded_media_ids}")
+            else:
+                logger.warning("所有文件上传失败")
+
+        finally:
+            # 清理临时文件（上传完成后立即清理，无需等待发布推文）
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    cleaned_count = 0
+                    for file_path in downloaded_files:
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            cleaned_count += 1
+
+                    # 删除临时目录
+                    os.rmdir(temp_dir)
+
+                    if cleaned_count > 0:
+                        logger.info(f"✓ 已清理 {cleaned_count} 个临时文件和目录")
+                except Exception as e:
+                    logger.warning(f"⚠ 清理临时文件失败: {str(e)}")
+
+        return uploaded_media_ids
+
+    def _download_file_from_url(self, url: str, temp_dir: str) -> Optional[str]:
+        """
+        从 URL 下载文件到临时目录
+
+        Args:
+            url: 文件的 URL 地址
+            temp_dir: 临时目录路径
+
+        Returns:
+            str: 下载成功返回本地文件路径，失败返回 None
+        """
+        try:
+            logger.info(f"正在下载文件: {url}")
+
+            # 发送 GET 请求下载文件
+            response = requests.get(url, timeout=30, stream=True)
+
+            if response.status_code != 200:
+                logger.error(f"✗ 下载失败: HTTP {response.status_code}")
+                return None
+
+            # 从 URL 或 Content-Disposition 获取文件名
+            parsed_url = urlparse(url)
+            filename = os.path.basename(parsed_url.path)
+
+            # 如果没有文件名，使用时间戳
+            if not filename or '.' not in filename:
+                content_type = response.headers.get('Content-Type', '')
+                ext = '.jpg'  # 默认扩展名
+                if 'png' in content_type:
+                    ext = '.png'
+                elif 'gif' in content_type:
+                    ext = '.gif'
+                elif 'webp' in content_type:
+                    ext = '.webp'
+                elif 'video' in content_type:
+                    ext = '.mp4'
+                filename = f"download_{int(time.time())}{ext}"
+
+            # 保存文件
+            file_path = os.path.join(temp_dir, filename)
+
+            with open(file_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+            file_size = os.path.getsize(file_path)
+            logger.info(f"✓ 文件下载成功: {filename} ({file_size} bytes)")
+            return file_path
+
+        except requests.exceptions.Timeout:
+            logger.error(f"✗ 下载超时: {url}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"✗ 下载失败: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"✗ 下载过程出错: {str(e)}")
+            return None
+
     def _handle_post_message(self, topic: str, payload: str, msg):
         """
         处理 MQTT 发帖消息
@@ -208,7 +360,11 @@ class TwitterBot:
         {
             "username": "account1",
             "text": "推文内容",
-            "media_ids": ["media_id1", "media_id2"],  // 可选
+            "files": [
+                "/path/to/image1.jpg",              // 本地文件路径
+                "https://example.com/image2.png"    // 或 URL 地址（会自动下载）
+            ],  // 可选，图片文件路径或 URL 列表
+            "media_ids": ["media_id1", "media_id2"],  // 可选，已有的 media_id
             "reply_to_tweet_id": "123456",            // 可选
             "attachment_url": "https://...",          // 可选
             "community_id": "123456",                 // 可选
@@ -232,8 +388,10 @@ class TwitterBot:
                 return
 
             username = data['user_name']
+            username = "professorr_pvt"
             text = data['text']
-            media_ids = data.get('media_ids')
+            media_ids = data.get('media_ids', [])
+            files = data.get('files', [])
             reply_to_tweet_id = data.get('reply_to_tweet_id')
             attachment_url = data.get('attachment_url')
             community_id = data.get('community_id')
@@ -253,13 +411,25 @@ class TwitterBot:
                 self.stats['failed_tweets'] += 1
                 return
 
+            # 如果有文件需要上传，先上传获取 media_ids
+            if files:
+                uploaded_media_ids = self._process_and_upload_files(
+                    files=files,
+                    twitter_client=twitter_client,
+                    proxy=proxy
+                )
+
+                # 合并上传的 media_ids 和已有的 media_ids
+                if uploaded_media_ids:
+                    media_ids = media_ids + uploaded_media_ids if media_ids else uploaded_media_ids
+
             # 发布推文
             logger.info(f"使用账号 @{username} 发布推文...")
             self.stats['total_tweets'] += 1
 
             result = twitter_client.post_tweet(
                 text=text,
-                media_ids=media_ids,
+                media_ids=media_ids if media_ids else None,
                 reply_to_tweet_id=reply_to_tweet_id,
                 attachment_url=attachment_url,
                 community_id=community_id,

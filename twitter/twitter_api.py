@@ -1,6 +1,8 @@
 import requests
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import json
+import os
 
 
 class TwitterAPI:
@@ -12,13 +14,15 @@ class TwitterAPI:
     API 文档: https://twitterapi.io/docs
     """
 
-    def __init__(self, api_key: str, base_url: str = "https://api.twitterapi.io"):
+    def __init__(self, api_key: str, base_url: str = "https://api.twitterapi.io",
+                 cookies_file: Optional[str] = None):
         """
         初始化 Twitter API 客户端
 
         Args:
             api_key: TwitterAPI.io 的 API 密钥
             base_url: API 基础 URL，默认为 TwitterAPI.io 的地址
+            cookies_file: 可选的 cookies 文件路径，用于保存和加载登录凭证
         """
         self.api_key = api_key
         self.base_url = base_url
@@ -29,6 +33,17 @@ class TwitterAPI:
         self.is_authenticated = False
         self.auth_token = None
         self.user_info = None
+
+        # 设置 cookies 文件路径，默认为 twitter 目录下的 .twitter_cookies.json
+        if cookies_file:
+            self.cookies_file = cookies_file
+        else:
+            # 获取当前文件所在目录（twitter 目录）
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            self.cookies_file = os.path.join(current_dir, ".twitter_cookies.json")
+
+        # 尝试从文件加载已保存的 cookies
+        self._load_cookies_from_file()
 
     def authenticate(self, user_name: Optional[str] = None,
                     email: Optional[str] = None,
@@ -48,6 +63,11 @@ class TwitterAPI:
         Returns:
             bool: 认证成功返回 True，否则返回 False
         """
+        # 如果已经认证且有有效的 auth_token，跳过登录
+        if self.is_authenticated and self.auth_token:
+            print("✓ 已从文件加载登录凭证，跳过登录")
+            return True
+
         if not password:
             print("✗ 必须提供密码")
             return False
@@ -113,6 +133,9 @@ class TwitterAPI:
                 if self.user_info:
                     print(f"  用户: @{self.user_info.get('username', 'N/A')}")
                     print(f"  ID: {self.user_info.get('id', 'N/A')}")
+
+                # 保存 cookies 到文件
+                self._save_cookies_to_file()
                 return True
             else:
                 self.is_authenticated = False
@@ -123,6 +146,90 @@ class TwitterAPI:
             print(f"✗ 登录过程出错: {str(e)}")
             self.is_authenticated = False
             return False
+
+    def upload_media(self, file_path: str, proxy: Optional[str] = None,
+                     is_long_video: bool = False) -> Optional[str]:
+        """
+        上传媒体文件（图片或视频）
+
+        Args:
+            file_path: 媒体文件路径
+            proxy: 可选的代理服务器
+            is_long_video: 是否为长视频
+
+        Returns:
+            str: 上传成功返回 media_id，失败返回 None
+        """
+        if not self.is_authenticated:
+            print("✗ 请先进行认证")
+            return None
+
+        if not self.auth_token:
+            print("✗ 未找到登录凭证 (auth_token)，请重新登录")
+            return None
+
+        if not os.path.exists(file_path):
+            print(f"✗ 文件不存在: {file_path}")
+            return None
+
+        try:
+            url = f"{self.base_url}/twitter/upload_media_v2"
+
+            # 根据文件扩展名确定 MIME 类型
+            filename = os.path.basename(file_path)
+            ext = os.path.splitext(filename)[1].lower()
+
+            mime_type_map = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp',
+                '.mp4': 'video/mp4',
+                '.mov': 'video/quicktime'
+            }
+
+            mime_type = mime_type_map.get(ext, 'image/jpeg')  # 默认使用 image/jpeg
+
+            # 准备文件
+            with open(file_path, 'rb') as f:
+                files = {'file': (filename, f, mime_type)}
+
+                # 准备表单数据
+                data = {
+                    'login_cookies': self.auth_token,
+                    'is_long_video': str(is_long_video).lower()
+                }
+
+                if proxy:
+                    data['proxy'] = proxy
+
+                # 上传时不使用 Content-Type: application/json
+                headers = {
+                    "X-API-Key": self.api_key
+                }
+
+                response = requests.post(url, headers=headers, files=files, data=data)
+
+            if response.status_code == 200 or response.status_code == 201:
+                result = response.json()
+                media_id = result.get('media_id') or result.get('media_id_string')
+
+                if media_id:
+                    print(f"✓ 媒体文件上传成功: {os.path.basename(file_path)}")
+                    print(f"  media_id: {media_id}")
+                    return media_id
+                else:
+                    print(f"✗ 上传失败: 未能从响应中获取 media_id")
+                    print(f"  响应数据: {result}")
+                    return None
+            else:
+                print(f"✗ 上传失败: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            print(f"✗ 上传过程出错: {str(e)}")
+            return None
 
     def post_tweet(self, text: str, media_ids: Optional[List[str]] = None,
                    reply_to_tweet_id: Optional[str] = None,
@@ -331,6 +438,89 @@ class TwitterAPI:
 
         except Exception as e:
             print(f"✗ 转发过程出错: {str(e)}")
+            return False
+
+    def _save_cookies_to_file(self) -> bool:
+        """
+        将登录凭证保存到文件
+
+        Returns:
+            bool: 保存成功返回 True
+        """
+        try:
+            cookies_data = {
+                "auth_token": self.auth_token,
+                "user_info": self.user_info,
+                "timestamp": datetime.now().isoformat()
+            }
+
+            # 确保目录存在
+            os.makedirs(os.path.dirname(self.cookies_file) or '.', exist_ok=True)
+
+            with open(self.cookies_file, 'w', encoding='utf-8') as f:
+                json.dump(cookies_data, f, ensure_ascii=False, indent=2)
+
+            print(f"✓ 登录凭证已保存到: {self.cookies_file}")
+            return True
+
+        except Exception as e:
+            print(f"⚠ 保存登录凭证失败: {str(e)}")
+            return False
+
+    def _load_cookies_from_file(self) -> bool:
+        """
+        从文件加载登录凭证
+
+        Returns:
+            bool: 加载成功返回 True
+        """
+        try:
+            if not os.path.exists(self.cookies_file):
+                print(f"ℹ 未找到已保存的登录凭证文件: {self.cookies_file}")
+                return False
+
+            with open(self.cookies_file, 'r', encoding='utf-8') as f:
+                cookies_data = json.load(f)
+
+            self.auth_token = cookies_data.get("auth_token")
+            self.user_info = cookies_data.get("user_info")
+
+            if self.auth_token:
+                self.is_authenticated = True
+                timestamp = cookies_data.get("timestamp", "未知")
+                print(f"✓ 成功从文件加载登录凭证")
+                print(f"  保存时间: {timestamp}")
+                if self.user_info:
+                    print(f"  用户: @{self.user_info.get('username', 'N/A')}")
+                    print(f"  ID: {self.user_info.get('id', 'N/A')}")
+                return True
+            else:
+                print("⚠ 登录凭证文件无效")
+                return False
+
+        except Exception as e:
+            print(f"⚠ 加载登录凭证失败: {str(e)}")
+            return False
+
+    def clear_cookies(self) -> bool:
+        """
+        清除保存的登录凭证文件
+
+        Returns:
+            bool: 清除成功返回 True
+        """
+        try:
+            if os.path.exists(self.cookies_file):
+                os.remove(self.cookies_file)
+                print(f"✓ 已清除登录凭证文件: {self.cookies_file}")
+
+            self.auth_token = None
+            self.user_info = None
+            self.is_authenticated = False
+            return True
+
+        except Exception as e:
+            print(f"✗ 清除登录凭证失败: {str(e)}")
             return False
 
 
