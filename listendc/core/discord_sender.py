@@ -6,8 +6,11 @@ Discord消息发送管理模块
 
 import asyncio
 import logging
+import sqlite3
+import os
 import aiohttp
 import io
+from datetime import datetime
 
 try:
     import discord
@@ -29,6 +32,32 @@ class DiscordSenderManager:
         self.clients = {}
         self.ready_clients = {}
         self.logger = logging.getLogger('SenderManager')
+        self._init_db()
+
+    def _init_db(self):
+        """初始化 SQLite 数据库，创建消息映射表"""
+        db_dir = os.path.dirname(os.path.abspath(__file__))
+        self.db_path = os.path.join(db_dir, '..', 'listeners', 'messages.db')
+        self.db_path = os.path.normpath(self.db_path)
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS discord_messages (
+                    discord_msg_id TEXT PRIMARY KEY,
+                    msg_id         TEXT NOT NULL,
+                    channel_id     TEXT NOT NULL,
+                    created_at     TEXT NOT NULL
+                )
+            ''')
+            conn.commit()
+
+    def save_message(self, discord_msg_id: str, msg_id: str, channel_id: str):
+        """保存 discord_msg_id -> 目标 msg_id 映射"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                'INSERT OR REPLACE INTO discord_messages (discord_msg_id, msg_id, channel_id, created_at) VALUES (?, ?, ?, ?)',
+                (str(discord_msg_id), str(msg_id), str(channel_id), datetime.now().isoformat())
+            )
+            conn.commit()
 
     async def initialize(self):
         """初始化所有客户端"""
@@ -88,7 +117,8 @@ class DiscordSenderManager:
         except Exception as e:
             self.logger.error(f"账号 {sender_id} 启动失败: {e}")
 
-    async def send_message(self, sender_id, server_id, channel_id, content, attachments=None):
+    async def send_message(self, sender_id, server_id, channel_id, content, attachments=None,
+                           discord_msg_id: str = None, ref_msg_id: str = None):
         """发送消息（支持跨服务器）
 
         Args:
@@ -97,6 +127,8 @@ class DiscordSenderManager:
             channel_id: 频道ID
             content: 消息内容
             attachments: 附件URL列表（可选）
+            discord_msg_id: 原始 Discord 消息 ID（用于建立映射，可选）
+            ref_msg_id: 要回复的目标频道消息 ID（可选）
 
         Returns:
             bool: 是否成功
@@ -131,7 +163,6 @@ class DiscordSenderManager:
                             async with session.get(url) as resp:
                                 if resp.status == 200:
                                     data = await resp.read()
-                                    # 从URL中提取文件名
                                     filename = url.split('/')[-1].split('?')[0]
                                     files.append(discord.File(io.BytesIO(data), filename=filename))
                                     self.logger.debug(f"下载附件成功: {filename}")
@@ -140,11 +171,24 @@ class DiscordSenderManager:
                 except Exception as e:
                     self.logger.error(f"处理附件时出错: {e}")
 
+            # 构造 reply 对象（如果有 ref_msg_id）
+            reference = None
+            if ref_msg_id:
+                try:
+                    reference = discord.MessageReference(
+                        message_id=int(ref_msg_id),
+                        channel_id=int(channel_id),
+                        fail_if_not_exists=False
+                    )
+                    self.logger.info(f"设置回复消息: ref_msg_id={ref_msg_id}")
+                except Exception as e:
+                    self.logger.warning(f"构造 reply reference 失败: {e}")
+
             # 发送消息
             if files:
-                await channel.send(content=content, files=files)
+                sent_msg = await channel.send(content=content, files=files, reference=reference)
             else:
-                await channel.send(content)
+                sent_msg = await channel.send(content, reference=reference)
 
             # 构建日志信息
             if server_id:
@@ -154,8 +198,14 @@ class DiscordSenderManager:
 
             attachment_info = f" (含{len(files)}个附件)" if files else ""
             self.logger.info(
-                f"[{sender_id}] 发送成功 -> {log_target}: {content[:50]}{attachment_info}"
+                f"[{sender_id}] 发送成功 -> {log_target}: {content[:50]}{attachment_info}, msg_id={sent_msg.id}"
             )
+
+            # 保存原始消息 id -> 目标消息 id 的映射
+            if discord_msg_id:
+                self.save_message(discord_msg_id, str(sent_msg.id), channel_id)
+                self.logger.info(f"已保存消息映射: {discord_msg_id} -> {sent_msg.id}")
+
             return True
 
         except discord.NotFound:

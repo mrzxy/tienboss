@@ -7,6 +7,7 @@ User Token监听器模块
 import json
 import logging
 import re
+import sqlite3
 import aiohttp
 from datetime import datetime
 
@@ -43,6 +44,32 @@ class UserListener:
         self.anthropic_config = anthropic_config or {}
         self.setup_events()
         self.logger = logging.getLogger('UserListener')
+        self._init_db()
+
+    def _init_db(self):
+        """初始化 DB 路径，确保表存在（写入由 discord_sender 负责）"""
+        import os
+        db_dir = os.path.dirname(os.path.abspath(__file__))
+        self.db_path = os.path.join(db_dir, 'messages.db')
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS discord_messages (
+                    discord_msg_id TEXT PRIMARY KEY,
+                    msg_id         TEXT NOT NULL,
+                    channel_id     TEXT NOT NULL,
+                    created_at     TEXT NOT NULL
+                )
+            ''')
+            conn.commit()
+
+    def _get_msg_id(self, discord_msg_id: str) -> str | None:
+        """根据原始 discord_msg_id 查询目标频道的 msg_id，不存在返回 None"""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                'SELECT msg_id FROM discord_messages WHERE discord_msg_id = ?',
+                (str(discord_msg_id),)
+            ).fetchone()
+        return row[0] if row else None
 
     def setup_events(self):
         """设置事件处理器"""
@@ -105,11 +132,11 @@ class UserListener:
             await self.procCommentary(message)
             return
          
-        elif message.channel.id == 1072731733402865714 or message.channel.id == 1467778640132575369:
+        elif message.channel.id == 1072731733402865714:
             await self.procShunge(message)
             return
         
-        elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003]:
+        elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003, 1467778640132575369]:
             await self.procproFessorrChannel(message)
             return
 
@@ -129,6 +156,8 @@ class UserListener:
             1084536050522804354: "1321092503721611335/1430131197979394168",
             # profs-longterm-action
             1377288801235239003: "1321092503721611335/1430131171433386026",
+            # 1467778640132575369
+            1467778640132575369: "1321313424717774949/1466080854274080818"
         }
         if message.channel.id not in forwordMap:
             return
@@ -148,8 +177,18 @@ class UserListener:
             "sender": "professorr",
             "target_id": forwordMap[message.channel.id],
             "content": content,
+            "discord_msg_id": str(message.id),
             "attachments": [att.url for att in message.attachments]
         }
+
+        if message.reference and message.reference.message_id:
+            ref_msg_id = self._get_msg_id(str(message.reference.message_id))
+            if ref_msg_id:
+                payload["ref_msg_id"] = ref_msg_id
+                self.logger.info(f"消息引用了 discord_msg_id={message.reference.message_id}，对应 ref_msg_id={ref_msg_id}")
+            else:
+                self.logger.warning(f"未找到引用消息的 msg_id: discord_msg_id={message.reference.message_id}")
+
 
         # 发送到MQTT
         self._send_mqtt_message(payload) 

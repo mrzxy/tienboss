@@ -153,6 +153,8 @@ class MQTTListener:
             target_id = payload.get('target_id')
             content = payload.get('content', '')
             attachments = payload.get('attachments', [])
+            discord_msg_id = payload.get('discord_msg_id')
+            ref_msg_id = payload.get('ref_msg_id')
 
             # 验证必需字段
             if not sender:
@@ -182,7 +184,9 @@ class MQTTListener:
             if self.loop:
                 asyncio.run_coroutine_threadsafe(
                     self.sender_manager.send_message(
-                        sender, server_id, channel_id, content, attachments
+                        sender, server_id, channel_id, content, attachments,
+                        discord_msg_id=discord_msg_id,
+                        ref_msg_id=ref_msg_id
                     ),
                     self.loop
                 )
