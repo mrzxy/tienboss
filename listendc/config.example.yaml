@@ -66,3 +66,9 @@ database:
 webhook:
   enabled: false
   url: ""
+
+# 腾讯云 OCR 配置
+tencent:
+  secret_id: YOUR_TENCENTCLOUD_SECRET_ID
+  secret_key: YOUR_TENCENTCLOUD_SECRET_KEY
+  ocr_region: ap-singapore

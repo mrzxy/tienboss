@@ -3,7 +3,12 @@
     "allow": [
       "Bash(ln:*)",
       "Bash(python:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(/opt/homebrew/bin/python3.12:*)",
+      "Bash(conda info:*)",
+      "Bash(gvm list:*)",
+      "Bash(pyenv versions:*)"
     ]
   }
 }

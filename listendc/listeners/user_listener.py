@@ -10,7 +10,8 @@ import re
 import sqlite3
 import aiohttp
 from datetime import datetime
-
+from utils.helpers import find_avatar_in_chat,download_image
+from utils.ocr_client import OcrClient
 try:
     import discord
 except ImportError:
@@ -21,6 +22,12 @@ try:
 except ImportError:
     mqtt = None
 
+import os
+
+oc_client = OcrClient.from_config()
+
+STATIC_DIR  = os.path.join(os.path.dirname(__file__), '..', 'static')
+AVATAR_PATH = os.path.normpath(os.path.join(STATIC_DIR, 'thumb.png'))
 
 class UserListener:
     """User Token监听器 - 用于监听其他频道"""
@@ -156,15 +163,22 @@ class UserListener:
             1084536050522804354: "1321092503721611335/1430131197979394168",
             # profs-longterm-action
             1377288801235239003: "1321092503721611335/1430131171433386026",
-            # 1467778640132575369
-            1467778640132575369: "1321313424717774949/1466080854274080818"
+            # test 1467778640132575369
+            # 1467778640132575369: "1321313424717774949/1466080854274080818"
         }
         if message.channel.id not in forwordMap:
+            return
+
+        if not await self.isAllowed(message.attachments):
+            self.logger.info("isAllowed 返回 False")
             return
 
         # 转成中文
         isSendX = False
         if message.channel.id in [1440354561712721941, 1409620660946337972, 1029105372797096068]:
+
+          
+            # 转成中文
             trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。")
             if not trans.get('success'):
                 self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
@@ -202,6 +216,26 @@ class UserListener:
                 "files": [att.url for att in message.attachments]
             }, "/x/post")
 
+    async def isAllowed(self, attachments):
+        if len(attachments) < 1:
+            return True
+        res = True
+        # 检查图片是否包含
+        for v in attachments:
+            try:
+                data = download_image(v.url)
+                res = find_avatar_in_chat(AVATAR_PATH, data)
+                if res['found']:
+                    self.logger.info(f"检测到 Prof头像 {res}")
+                    return False
+                #使用文字ocr
+                if oc_client.contains_prof(data):
+                    self.logger.info(f"检测到 Prof名字 ")
+                    return False
+            except Exception as e:
+                self.logger.error(f'图片匹配头像 Error: {e}', exc_info=True)
+                return False
+        return res
 
         # 可以在这里添加更多处理逻辑
         # await self.on_message_received(info)
