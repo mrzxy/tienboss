@@ -144,9 +144,46 @@ class TwitterBot:
             for target in account.monitor_targets
         }
 
+        # 美东时间区（ET，夏令时 UTC-4，冬令时 UTC-5，用 pytz 或固定偏移均可）
+        try:
+            import zoneinfo
+            ET = zoneinfo.ZoneInfo("America/New_York")
+        except ImportError:
+            from datetime import timezone as _tz
+            ET = _tz(timedelta(hours=-5))  # 退化为 UTC-5（EST）
+
+        def _is_weekend_quiet() -> bool:
+            """判断当前是否处于美东时间 周五 19:00 ~ 周一 07:00 静默窗口"""
+            now_et = datetime.now(ET)
+            wd = now_et.weekday()  # 0=Mon … 4=Fri 5=Sat 6=Sun
+            h = now_et.hour
+            # 周六 / 周日 全天
+            if wd in (5, 6):
+                return True
+            # 周五 19:00 之后
+            if wd == 4 and h >= 19:
+                return True
+            # 周一 07:00 之前
+            if wd == 0 and h < 7:
+                return True
+            return False
+
         logger.info(f"[monitor@{account.username}] 开始监听: {account.monitor_targets}")
 
+        _in_quiet = False  # 追踪静默状态，避免重复日志
+
         while not stop_event.is_set():
+            # 静默窗口：周五 19:00 ~ 周一 07:00（美东时间），跳过本轮请求
+            if _is_weekend_quiet():
+                if not _in_quiet:
+                    logger.info(f"[monitor@{account.username}] 进入周末静默窗口，暂停监听")
+                    _in_quiet = True
+                stop_event.wait(check_interval)
+                continue
+            if _in_quiet:
+                logger.info(f"[monitor@{account.username}] 退出周末静默窗口，恢复监听")
+                _in_quiet = False
+
             for target in account.monitor_targets:
                 if stop_event.is_set():
                     break
