@@ -9,9 +9,10 @@ import time
 import sys
 import os
 import tempfile
+import threading
 import requests
-from typing import Dict, Optional
-from datetime import datetime
+from typing import Dict, Optional, List
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from twitter_api import TwitterAPI
@@ -68,6 +69,10 @@ class TwitterBot:
             'start_time': datetime.now()
         }
 
+        # 监听线程管理：username -> Thread
+        self._monitor_threads: Dict[str, threading.Thread] = {}
+        self._monitor_stop_events: Dict[str, threading.Event] = {}
+
     def initialize_accounts(self):
         """初始化所有启用的 Twitter 账号"""
         logger.info("=" * 60)
@@ -93,6 +98,140 @@ class TwitterBot:
 
         return success_count > 0
 
+    def start_monitors(self):
+        """为所有配置了 monitor_targets 的已登录账号启动监听线程"""
+        accounts = get_all_enabled_accounts()
+        for account in accounts:
+            if account.monitor_targets and account.username in self.twitter_clients:
+                self._start_monitor(account)
+
+    def _start_monitor(self, account: TwitterAccount):
+        """为单个账号启动监听线程"""
+        username = account.username
+        if username in self._monitor_threads and self._monitor_threads[username].is_alive():
+            logger.info(f"账号 @{username} 的监听线程已在运行")
+            return
+
+        stop_event = threading.Event()
+        self._monitor_stop_events[username] = stop_event
+
+        thread = threading.Thread(
+            target=self._monitor_loop,
+            args=(account, stop_event),
+            name=f"monitor-{username}",
+            daemon=True
+        )
+        self._monitor_threads[username] = thread
+        thread.start()
+        logger.info(f"✓ 已启动账号 @{username} 的监听线程，监听目标: {account.monitor_targets}")
+
+    def _monitor_loop(self, account: TwitterAccount, stop_event: threading.Event,
+                      check_interval: int = 10):
+        """
+        监听循环，定期检查目标账号的新推文
+
+        Args:
+            account: 本账号配置（提供 api_key/proxy）
+            stop_event: 停止信号
+            check_interval: 检查间隔（秒），默认 300
+        """
+        url = "https://api.twitterapi.io/twitter/tweet/advanced_search"
+        headers = {"X-API-Key": self.api_key}
+
+        # 每个目标账号独立维护 last_checked_time
+        last_checked: Dict[str, datetime] = {
+            target: datetime.now(timezone.utc).replace(tzinfo=None)
+            for target in account.monitor_targets
+        }
+
+        logger.info(f"[monitor@{account.username}] 开始监听: {account.monitor_targets}")
+
+        while not stop_event.is_set():
+            for target in account.monitor_targets:
+                if stop_event.is_set():
+                    break
+                try:
+                    until_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                    since_time = last_checked[target]
+
+                    since_str = since_time.strftime("%Y-%m-%d_%H:%M:%S_UTC")
+                    until_str = until_time.strftime("%Y-%m-%d_%H:%M:%S_UTC")
+
+                    query = f"from:{target} since:{since_str} until:{until_str} -filter:replies -filter:quote"
+                    params = {"query": query, "queryType": "Latest"}
+
+                    all_tweets = []
+                    next_cursor = None
+
+                    while True:
+                        if next_cursor:
+                            params["cursor"] = next_cursor
+
+                        proxy_url = account.proxy
+                        if not proxy_url and self.proxy_manager:
+                            proxy_url = self.proxy_manager.get_proxy(username=account.username)
+
+                        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+                        response = requests.get(url, headers=headers, params=params,
+                                                proxies=proxies, timeout=30)
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            tweets = data.get("tweets", [])
+                            if tweets:
+                                all_tweets.extend(tweets)
+                            if data.get("has_next_page") and data.get("next_cursor"):
+                                next_cursor = data["next_cursor"]
+                                continue
+                        else:
+                            logger.warning(f"[monitor@{account.username}] 请求失败 {response.status_code}: {response.text}")
+                        break
+
+                    if all_tweets:
+                        logger.info(f"[monitor@{account.username}] @{target} 有 {len(all_tweets)} 条新推文")
+                        for tweet in all_tweets:
+                            logger.info(f"  [{tweet.get('createdAt')}] {tweet.get('text', '')}")
+                            self._on_new_tweet(account, target, tweet)
+
+                    last_checked[target] = until_time
+
+                except Exception as e:
+                    logger.error(f"[monitor@{account.username}] 监听 @{target} 异常: {e}")
+
+            stop_event.wait(check_interval)
+
+        logger.info(f"[monitor@{account.username}] 监听线程已停止")
+
+    def _on_new_tweet(self, account: TwitterAccount, target_username: str, tweet: dict):
+        """
+        收到新推文时的回调，子类可重写此方法实现自定义处理
+
+        Args:
+            account: 监听所属账号
+            target_username: 被监听的目标账号
+            tweet: 推文数据
+        """
+        content = tweet.get('text', '')
+        payload = {
+            "sender": "sam",
+            "content": content,
+            "target_id": "1345761025684934748/1441624375194423368",
+        }
+        if '🚩' in content:
+            payload["target_id"] =  "1345761025684934748/1441624282252710109"
+
+        self.mqtt_client.publish('lis-msg-v2', json.dumps(payload))
+
+        pass
+
+    def stop_monitors(self):
+        """停止所有监听线程"""
+        for username, stop_event in self._monitor_stop_events.items():
+            stop_event.set()
+        for username, thread in self._monitor_threads.items():
+            thread.join(timeout=5)
+        logger.info("✓ 所有监听线程已停止")
+
     def _login_account(self, account: TwitterAccount, retry_count: int = 3) -> bool:
         """
         登录单个 Twitter 账号（支持代理自动切换）
@@ -108,8 +247,10 @@ class TwitterBot:
             try:
                 logger.info(f"正在登录账号: @{account.username} (尝试 {attempt + 1}/{retry_count})")
 
-                # 创建 TwitterAPI 实例
-                twitter = TwitterAPI(api_key=self.api_key)
+                # 创建 TwitterAPI 实例（每个账号使用独立的 cookies 文件，避免多账号冲突）
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                cookies_file = os.path.join(current_dir, f".twitter_cookies_{account.username}.json")
+                twitter = TwitterAPI(api_key=self.api_key, cookies_file=cookies_file)
 
                 # 决定使用哪个代理
                 proxy = account.proxy  # 优先使用账号配置的代理
@@ -479,7 +620,10 @@ class TwitterBot:
                 logger.error("没有成功登录的账号，程序退出")
                 return
 
-            # 2. 设置 MQTT 连接
+            # 2. 启动监听线程
+            self.start_monitors()
+
+            # 3. 设置 MQTT 连接
             if not self.setup_mqtt():
                 logger.error("MQTT 连接失败，程序退出")
                 return
@@ -508,6 +652,7 @@ class TwitterBot:
 
         finally:
             # 清理资源
+            self.stop_monitors()
             if self.mqtt_client:
                 self.mqtt_client.disconnect()
 
