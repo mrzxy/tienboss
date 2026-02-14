@@ -4,6 +4,7 @@
 腾讯云 OCR 客户端封装
 """
 import os
+import re
 import json
 import base64
 import logging
@@ -53,7 +54,7 @@ class OcrClient:
 
     def contains_prof(self, data) -> bool:
         lines = self.recognize(data=data)
-        return any('Prof' in line for line in lines)
+        return any(re.search(r'(?<!\S)Prof(?!\S)', line) for line in lines)
 
     def recognize(self, data: bytes = None, url: str = None) -> list[str]:
         """通用文字识别（基础版）
@@ -126,8 +127,12 @@ if __name__ == '__main__':
     ocr = OcrClient.from_config()
     
     from helpers import download_image
-    img_path = input("请输入本地图片路径: ").strip()
-    data = download_image(img_path) 
+    img_path = input("请输入本地图片路径或图片URL: ").strip()
+    if os.path.isfile(img_path):
+        with open(img_path, 'rb') as f:
+            data = f.read()
+    else:
+        data = download_image(img_path)
     containProf = ocr.contains_prof(data)
     print(containProf)
 
