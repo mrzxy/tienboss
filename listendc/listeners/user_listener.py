@@ -169,9 +169,8 @@ class UserListener:
         if message.channel.id not in forwordMap:
             return
 
-        if not await self.isAllowed(message.attachments):
-            self.logger.info("isAllowed 返回 False")
-            return
+        attachments = await self.proc_attachments(message.attachments)
+    
 
         # 转成中文
         isSendX = False
@@ -192,7 +191,7 @@ class UserListener:
             "target_id": forwordMap[message.channel.id],
             "content": content,
             "discord_msg_id": str(message.id),
-            "attachments": [att.url for att in message.attachments]
+            "attachments": [att.url for att in attachments]
         }
 
         if message.reference and message.reference.message_id:
@@ -213,28 +212,28 @@ class UserListener:
             self._send_mqtt_message({
                 "user_name": "professorr_pvt",
                 "text": content,
-                "files": [att.url for att in message.attachments]
+                "files": [att.url for att in attachments]
             }, "/x/post")
 
-    async def isAllowed(self, attachments):
+    async def proc_attachments(self, attachments):
         if len(attachments) < 1:
-            return True
-        res = True
+            return []
+        res = []
         # 检查图片是否包含
         for v in attachments:
             try:
                 data = download_image(v.url)
-                res = find_avatar_in_chat(AVATAR_PATH, data)
-                if res['found']:
-                    self.logger.info(f"检测到 Prof头像 {res}")
-                    return False
+                match = find_avatar_in_chat(AVATAR_PATH, data)
+                if match['found']:
+                    continue
                 #使用文字ocr
                 if oc_client.contains_prof(data):
-                    self.logger.info(f"检测到 Prof名字 ")
-                    return False
+                    continue
+                res.append(v)
             except Exception as e:
                 self.logger.error(f'图片匹配头像 Error: {e}', exc_info=True)
-                return False
+                continue
+
         return res
 
         # 可以在这里添加更多处理逻辑
