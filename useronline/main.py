@@ -157,9 +157,9 @@ class UserOnlineManager:
 
                 self.clients[index] = client
 
-                # 启动客户端
+                # 启动客户端（禁用内部重连，由外层循环控制以便每次重连获取新代理）
                 logger.info(f"[账号 {index}] 正在启动...")
-                await client.start(token)
+                await client.start(token, reconnect=False)
 
             except discord.LoginFailure as e:
                 logger.error(f"[账号 {index}] ✗ 登录失败: Token 无效")
