@@ -144,8 +144,32 @@ class TwitterBot:
             for target in account.monitor_targets
         }
 
-        # 已处理推文 ID 集合，用于去重（防止重叠窗口导致重复推送）
-        seen_tweet_ids: set = set()
+        # 已处理推文 ID 集合，持久化到文件，重启后仍可去重
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        seen_ids_file = os.path.join(current_dir, f".seen_tweet_ids_{account.username}.json")
+
+        def _load_seen_ids() -> set:
+            try:
+                if os.path.exists(seen_ids_file):
+                    with open(seen_ids_file, 'r') as f:
+                        return set(json.load(f))
+            except Exception:
+                pass
+            return set()
+
+        def _save_seen_ids(ids: set, max_size: int = 10000):
+            try:
+                # 超出上限时只保留最新的 max_size 条（set 无序，转 list 截取）
+                id_list = list(ids)
+                if len(id_list) > max_size:
+                    id_list = id_list[-max_size:]
+                with open(seen_ids_file, 'w') as f:
+                    json.dump(id_list, f)
+            except Exception as e:
+                logger.warning(f"[monitor@{account.username}] 保存 seen_tweet_ids 失败: {e}")
+
+        seen_tweet_ids: set = _load_seen_ids()
+        logger.info(f"[monitor@{account.username}] 已加载 {len(seen_tweet_ids)} 条历史推文 ID")
 
         # 美东时间区（ET，夏令时 UTC-4，冬令时 UTC-5，用 pytz 或固定偏移均可）
         try:
@@ -236,8 +260,9 @@ class TwitterBot:
                             self._on_new_tweet(account, target, tweet)
                             if tweet_id:
                                 seen_tweet_ids.add(tweet_id)
+                        _save_seen_ids(seen_tweet_ids)
 
-                    last_checked[target] = until_time 
+                    last_checked[target] = until_time
 
                 except Exception as e:
                     logger.error(f"[monitor@{account.username}] 监听 @{target} 异常: {e}")
