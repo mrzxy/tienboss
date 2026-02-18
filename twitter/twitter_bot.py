@@ -140,9 +140,12 @@ class TwitterBot:
 
         # 每个目标账号独立维护 last_checked_time
         last_checked: Dict[str, datetime] = {
-            target: datetime.now(timezone.utc).replace(tzinfo=None)
+            target: datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1) 
             for target in account.monitor_targets
         }
+
+        # 已处理推文 ID 集合，用于去重（防止重叠窗口导致重复推送）
+        seen_tweet_ids: set = set()
 
         # 美东时间区（ET，夏令时 UTC-4，冬令时 UTC-5，用 pytz 或固定偏移均可）
         try:
@@ -224,13 +227,17 @@ class TwitterBot:
                             logger.warning(f"[monitor@{account.username}] 请求失败 {response.status_code}: {response.text}")
                         break
 
-                    if all_tweets:
-                        logger.info(f"[monitor@{account.username}] @{target} 有 {len(all_tweets)} 条新推文")
-                        for tweet in all_tweets:
+                    new_tweets = [t for t in all_tweets if t.get('id') not in seen_tweet_ids]
+                    if new_tweets:
+                        logger.info(f"[monitor@{account.username}] @{target} 有 {len(new_tweets)} 条新推文")
+                        for tweet in new_tweets:
+                            tweet_id = tweet.get('id')
                             logger.info(f"  [{tweet.get('createdAt')}] {tweet.get('text', '')}")
                             self._on_new_tweet(account, target, tweet)
+                            if tweet_id:
+                                seen_tweet_ids.add(tweet_id)
 
-                    last_checked[target] = until_time
+                    last_checked[target] = until_time 
 
                 except Exception as e:
                     logger.error(f"[monitor@{account.username}] 监听 @{target} 异常: {e}")
