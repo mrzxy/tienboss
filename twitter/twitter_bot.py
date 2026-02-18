@@ -681,7 +681,7 @@ class TwitterBot:
                     counter += 1
 
                     # 每 10 分钟打印一次统计
-                    if counter % 10 == 0:
+                    if counter % 1440 == 0:
                         self.print_stats()
 
             except KeyboardInterrupt:
