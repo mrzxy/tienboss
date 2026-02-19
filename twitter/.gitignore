@@ -32,3 +32,4 @@ twitter_bot.log
 .env.local
 
 .twitter_cookies*
+.seen_tw*

@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from twitter_api import TwitterAPI
-from accounts import get_account_by_username, get_all_enabled_accounts, TwitterAccount
+from accounts import get_account_by_username, get_all_enabled_accounts, TwitterAccount,DEBUG
 from emqx import MQTTClient, MQTTConfig
 from config import API_KEY, WEBSHARE_API_KEY, PROXY_AUTO_REFRESH, PROXY_REFRESH_INTERVAL
 from proxy_manager import ProxyManager
@@ -223,6 +223,7 @@ class TwitterBot:
 
                     query = f"from:{target} since:{since_str} until:{until_str} -filter:replies -filter:quote"
                     params = {"query": query, "queryType": "Latest"}
+                    print(query)
 
                     all_tweets = []
                     next_cursor = None
@@ -411,8 +412,9 @@ class TwitterBot:
         logger.info("MQTT 连接成功回调触发，开始订阅主题")
 
         # 订阅发帖主题
-        self.mqtt_client.subscribe("/x/post", callback=self._handle_post_message)
-        logger.info("✓ 已订阅主题: /x/post")
+        if not DEBUG: 
+            self.mqtt_client.subscribe("/x/post", callback=self._handle_post_message)
+            logger.info("✓ 已订阅主题: /x/post")
 
     def _process_and_upload_files(self, files: list, twitter_client, proxy: Optional[str] = None) -> list:
         """
