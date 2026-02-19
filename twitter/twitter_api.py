@@ -3,6 +3,19 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
 import os
+import logging
+import sys
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('twitter_bot.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class TwitterAPI:
@@ -253,15 +266,15 @@ class TwitterAPI:
             Dict: 发布成功返回推文信息，失败返回 None
         """
         if not self.is_authenticated:
-            print("✗ 请先进行认证")
+            logger.error("✗ 请先进行认证")
             return None
 
         if not self.auth_token:
-            print("✗ 未找到登录凭证 (auth_token)，请重新登录")
+            logger.error("✗ 未找到登录凭证 (auth_token)，请重新登录")
             return None
 
         if len(text) > 280 and not is_note_tweet:
-            print("✗ 推文内容超过 280 字符限制（如需发长文请设置 is_note_tweet=True）")
+            logger.error("✗ 推文内容超过 280 字符限制（如需发长文请设置 is_note_tweet=True）")
             return None
 
         try:
@@ -296,17 +309,13 @@ class TwitterAPI:
 
             if response.status_code == 200 or response.status_code == 201:
                 tweet_data = response.json()
-                print(tweet_data)
-                print(f"✓ 推文发布成功!")
-                print(f"  推文 ID: {tweet_data.get('id', 'N/A')}")
-                print(f"  内容: {text[:50]}..." if len(text) > 50 else f"  内容: {text}")
                 return tweet_data
             else:
-                print(f"✗ 发布失败: {response.status_code} - {response.text}")
+                logger.error(f"✗ 发布失败: {response.status_code} - {response.text}")
                 return None
 
         except Exception as e:
-            print(f"✗ 发布过程出错: {str(e)}")
+            logger.error(f"✗ 发布过程出错: {str(e)}")
             return None
 
     def get_user_tweets(self, username: str, count: int = 10) -> List[Dict[str, Any]]:

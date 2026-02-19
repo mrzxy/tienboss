@@ -223,7 +223,7 @@ class TwitterBot:
 
                     query = f"from:{target} since:{since_str} until:{until_str} -filter:replies -filter:quote"
                     params = {"query": query, "queryType": "Latest"}
-                    print(query)
+                    logger.info(query)
 
                     all_tweets = []
                     next_cursor = None
