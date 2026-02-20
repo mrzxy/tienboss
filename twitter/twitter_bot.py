@@ -607,7 +607,9 @@ class TwitterBot:
             reply_to_tweet_id = data.get('reply_to_tweet_id')
             attachment_url = data.get('attachment_url')
             community_id = data.get('community_id')
-            is_note_tweet = data.get('is_note_tweet', False)
+            is_note_tweet = False
+            if len(text) > 270:
+                is_note_tweet = True
 
             # 从消息中获取 proxy，如果没有则从代理管理器获取
             proxy = data.get('proxy')
