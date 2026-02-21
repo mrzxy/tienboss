@@ -126,7 +126,7 @@ class TwitterBot:
         logger.info(f"✓ 已启动账号 @{username} 的监听线程，监听目标: {account.monitor_targets}")
 
     def _monitor_loop(self, account: TwitterAccount, stop_event: threading.Event,
-                      check_interval: int = 60):
+                      check_interval: int = 300):
         """
         监听循环，定期检查目标账号的新推文
 
