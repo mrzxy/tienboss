@@ -244,7 +244,7 @@ class TwitterBot:
                         if response.status_code == 200:
                             data = response.json()
                             tweets = data.get("tweets", [])
-                            logger.info(f"[monitor@{account.username}] 接口返回 {len(new_tweets)} 条推文")
+                            logger.info(f"[monitor@{account.username}] 接口返回 {len(tweets)} 条推文")
                             if tweets:
                                 all_tweets.extend(tweets)
                             if data.get("has_next_page") and data.get("next_cursor"):
