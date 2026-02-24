@@ -140,7 +140,7 @@ class TwitterBot:
 
         # 每个目标账号独立维护 last_checked_time
         last_checked: Dict[str, datetime] = {
-            target: datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1) 
+            target:  datetime.utcnow() - timedelta(hours=1) 
             for target in account.monitor_targets
         }
 
@@ -232,17 +232,19 @@ class TwitterBot:
                         if next_cursor:
                             params["cursor"] = next_cursor
 
-                        proxy_url = account.proxy
-                        if not proxy_url and self.proxy_manager:
-                            proxy_url = self.proxy_manager.get_proxy(username=account.username)
+                        # proxy_url = account.proxy
+                        # if not proxy_url and self.proxy_manager:
+                        #     proxy_url = self.proxy_manager.get_proxy(username=account.username)
 
-                        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+                        # proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+                        proxies = None
                         response = requests.get(url, headers=headers, params=params,
                                                 proxies=proxies, timeout=30)
 
                         if response.status_code == 200:
                             data = response.json()
                             tweets = data.get("tweets", [])
+                            logger.info(f"[monitor@{account.username}] 接口返回 {len(new_tweets)} 条推文")
                             if tweets:
                                 all_tweets.extend(tweets)
                             if data.get("has_next_page") and data.get("next_cursor"):

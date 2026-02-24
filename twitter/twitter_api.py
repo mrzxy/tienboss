@@ -234,6 +234,7 @@ class TwitterAPI:
                     return media_id
                 else:
                     print(f"✗ 上传失败: 未能从响应中获取 media_id")
+                    print(f"data is: {data}")
                     print(f"  响应数据: {result}")
                     return None
             else:
