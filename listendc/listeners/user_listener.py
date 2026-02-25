@@ -148,7 +148,12 @@ class UserListener:
             return
 
     async def procproFessorrChannel(self, message):
+
         content = await self.procContent(message.content) 
+
+        if 'x.com' in content:
+            self.logger.error(f"content contain x.com, {content}")
+            return 
 
         forwordMap = {
             # profs-equitytrades🚨o
@@ -178,7 +183,7 @@ class UserListener:
 
           
             # 转成中文
-            trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。")
+            trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。", 'claude-sonnet-4-6')
             if not trans.get('success'):
                 self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
                 return
@@ -362,7 +367,7 @@ class UserListener:
         """
         return bool(re.search(r'[\u4e00-\u9fff]', text))
 
-    async def fetch_anthropic_api(self, content, tip=None):
+    async def fetch_anthropic_api(self, content, tip=None, model=None):
         """调用Anthropic API进行翻译（中文到英文）
 
         Args:
@@ -377,7 +382,9 @@ class UserListener:
         # 从配置读取API设置
         api_key = self.anthropic_config.get('api_key', '')
         api_url = self.anthropic_config.get('api_url', 'https://api.anthropic.com/v1/messages')
-        model = self.anthropic_config.get('model', 'claude-opus-4-1-20250805')
+        if model is None:
+            model = self.anthropic_config.get('model', 'claude-opus-4-1-20250805')
+
         max_tokens = self.anthropic_config.get('max_tokens', 20000)
         temperature = self.anthropic_config.get('temperature', 1)
 
