@@ -586,6 +586,7 @@ class TwitterBot:
             "proxy": "http://proxy:port"              // 可选
         }
         """
+        return
         try:
             logger.info(f"收到发帖消息: {payload}")
 
