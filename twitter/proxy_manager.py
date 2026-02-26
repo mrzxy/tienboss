@@ -109,6 +109,8 @@ class ProxyManager:
             return False
 
     def get_proxy(self, username: str = None) -> Optional[str]:
+        return f"http://karkjwlc:4h4e3wr165qr@69.30.75.168:6225"
+
         """
         获取一个可用代理（自动轮换）
 

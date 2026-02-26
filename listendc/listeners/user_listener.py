@@ -291,7 +291,7 @@ class UserListener:
 
 
         # 翻译成英文
-        trans = await self.fetch_anthropic_api(content)
+        trans = await self.fetch_anthropic_api(content, model="claude-sonnet-4-6")
         if not trans.get('success'):
             self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
             return
@@ -312,27 +312,27 @@ class UserListener:
             'schemes',
             '杀猪盘',
             'fraudulent',
+            'free',
         ]
 
         should_ignore = any(keyword.lower() in en_content.lower() for keyword in ignore_keywords)
-        if should_ignore:
-            self.logger.info(f'内容包含敏感关键字，已忽略: {en_content}')
-            return
+        if not should_ignore:
+            # 移除 "Brother Shun" 或 "Brother Shun."（忽略大小写）
+            en_content = re.sub(r'Brother\s+Shun\.?', '', en_content, flags=re.IGNORECASE)
+            en_content = re.sub(r'^shun ge', '', en_content, flags=re.IGNORECASE)
+            en_content = re.sub(r'^shunge', '', en_content, flags=re.IGNORECASE)
+            en_content = en_content.strip()
 
-        # 移除 "Brother Shun" 或 "Brother Shun."（忽略大小写）
-        en_content = re.sub(r'Brother\s+Shun\.?', '', en_content, flags=re.IGNORECASE)
-        en_content = re.sub(r'^shun ge', '', en_content, flags=re.IGNORECASE)
-        en_content = re.sub(r'^shunge', '', en_content, flags=re.IGNORECASE)
-        en_content = en_content.strip()
-
-        # 发布英文消息到MQTT
-        payload_en = {
-            "sender": "innercircle",
-            "target_id": "1321046672712929280/1325294881517867018",
-            "content": en_content
-        }
-        self._send_mqtt_message(payload_en)
-        self.logger.info(f"已发送英文消息到 lis-msg/innercircle")
+            # 发布英文消息到MQTT
+            payload_en = {
+                "sender": "innercircle",
+                "target_id": "1321046672712929280/1325294881517867018",
+                "content": en_content
+            }
+            self._send_mqtt_message(payload_en)
+            self.logger.info(f"已发送英文消息到 lis-msg/innercircle")
+        else:
+            self.logger.error(f"已发送英文消息到 触发违禁词, {en_content}")
 
         # 翻译成中文
         cn_trans = await self.fetch_anthropic_api_innercircle_cn(en_content)
@@ -341,6 +341,16 @@ class UserListener:
             return
 
         cn_content = cn_trans.get('data', {}).get('en_content', '')
+
+        cn_ignore_keywords = [
+            'clubhouse',
+        ]
+        should_ignore = any(keyword.lower() in cn_content.lower() for keyword in cn_ignore_keywords)
+      
+        if should_ignore:
+            self.logger.error(f"发送中文触发违禁词, {cn_content}")
+            return
+
 
         # 如果cn_content开头是"顺哥。"，替换成空
         if cn_content and cn_content.startswith('顺哥。'):
