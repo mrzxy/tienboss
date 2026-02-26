@@ -215,7 +215,7 @@ class TwitterBot:
                 if stop_event.is_set():
                     break
                 try:
-                    until_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                    until_time = datetime.utcnow()
                     since_time = last_checked[target]
 
                     since_str = since_time.strftime("%Y-%m-%d_%H:%M:%S_UTC")
@@ -244,7 +244,7 @@ class TwitterBot:
                         if response.status_code == 200:
                             data = response.json()
                             tweets = data.get("tweets", [])
-                            logger.info(f"[monitor@{account.username}] 接口返回 {len(tweets)} 条推文")
+                            logger.info(f"[monitor@{account.username}] 接口返回 {len(tweets)} 条推文, {params}")
                             if tweets:
                                 all_tweets.extend(tweets)
                             if data.get("has_next_page") and data.get("next_cursor"):
