@@ -290,8 +290,16 @@ class UserListener:
             return
 
 
+        tips = '''
+        请你扮演一个金融翻译师。
+把我给你的文本先整理一下，然后用地道英语表达出来。不要增加段落和格式，直接一段话表达。
+原文里是什么股票代码，就保留股票代码，不要自己更改。
+每个股票代码前面加上$符号。
+
+文本里与股票无关的内容不翻译也不转发，如果内容里包含了类似免费分享，慈善，无私分享，杀猪盘之类的话，同样不翻译也不转发。如果要翻译的内容里面有顺哥两个字，那么直接忽略这两个字。
+'''
         # 翻译成英文
-        trans = await self.fetch_anthropic_api(content, model="claude-sonnet-4-6")
+        trans = await self.fetch_anthropic_api(content, tip=tips, model="claude-sonnet-4-6")
         if not trans.get('success'):
             self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
             return
@@ -377,7 +385,7 @@ class UserListener:
         """
         return bool(re.search(r'[\u4e00-\u9fff]', text))
 
-    async def fetch_anthropic_api(self, content, tip=None, model=None):
+    async def fetch_anthropic_api(self, content, tip=None, model=None, think=None):
         """调用Anthropic API进行翻译（中文到英文）
 
         Args:
@@ -432,6 +440,14 @@ class UserListener:
                 }
             ]
         }
+        if think != None:
+            payload["thinking"] = {
+                "budget_tokens": 16000,
+                "type": "enabled",
+            }
+            payload["output_config"] = {
+                "effort": "high"
+            }
 
         try:
             self.logger.debug(f'Sending request to Anthropic API')
@@ -458,8 +474,10 @@ class UserListener:
 
                     result = await response.json()
                     self.logger.debug(f'API Response received')
-
-                    return_content = result['content'][0]['text']
+                    if think != None:
+                        return_content = result['content'][1]['text']
+                    else:
+                        return_content = result['content'][0]['text']
 
                     return {
                         'success': True,
@@ -697,3 +715,5 @@ class UserListener:
             self.logger.info("User客户端已停止")
         except Exception as e:
             self.logger.error(f"停止User客户端失败: {e}")
+
+

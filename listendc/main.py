@@ -264,8 +264,16 @@ class Application:
             await self.sender_manager.stop_all()
 
 
+async def test():
+    u = UserListener("a", "b")
+    content = "hi people, today UUU 10%"
+    trans = await u.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。", 'claude-sonnet-4-6', True)
+    print(trans)
+
+
 def main():
     """主函数"""
+
     try:
         app = Application()
         asyncio.run(app.run())
