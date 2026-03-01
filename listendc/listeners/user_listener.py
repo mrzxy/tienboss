@@ -142,6 +142,10 @@ class UserListener:
         elif message.channel.id == 1072731733402865714:
             await self.procShunge(message)
             return
+        # 一群 diamond-hands, comments
+        elif message.channel.id in [1335234038365163531,1387251242341761136]:
+            await self.procDiamondHandsAndComments(message)
+            return
         
         elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003, 1467778640132575369]:
             await self.procproFessorrChannel(message)
@@ -272,6 +276,23 @@ class UserListener:
 
         return content
 
+    async def procDiamondHandsAndComments(self, message):
+        content = await self.procContent(message.content)
+
+        # comments
+        payload = {
+            "sender": "sam",
+            "target_id": "1345761025684934748/1441624375194423368",
+            "attachments": [att.url for att in message.attachments],
+            "content": content
+        }
+
+        if message.channel.id == 1335234038365163531:
+            payload["target_id"] =  "1345761025684934748/1441624282252710109"
+
+        self._send_mqtt_message(payload)
+        self.logger.info(f"发送 消息到 sam {payload["target_id"]}")
+ 
 
     async def procShunge(self, message):
         """处理Shunge频道的特殊逻辑
