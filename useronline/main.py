@@ -137,11 +137,11 @@ class UserOnlineManager:
         max_retries = app_config.get('reconnect.max_attempts', 5)
         retry_delay = app_config.get('reconnect.retry_delay', 5)
         backoff_multiplier = app_config.get('reconnect.backoff_multiplier', 1.5)
+        proxy_url = None
 
         while True:
             try:
-                # 获取代理 URL
-                proxy_url = None
+                # 获取代理 URL（每次重连都刷新代理）
                 if use_proxy and self.proxy_manager:
                     proxy_url = self.proxy_manager.get_proxy(username=f"user_{index}")
                     if not proxy_url:
@@ -161,7 +161,11 @@ class UserOnlineManager:
                 logger.info(f"[账号 {index}] 正在启动...")
                 await client.start(token, reconnect=False)
 
-            except discord.LoginFailure as e:
+                # client.start() 正常返回表示连接断开（非异常），重置重试计数并立即重连
+                logger.warning(f"[账号 {index}] 连接断开，刷新代理后重连...")
+                retry_count = 0
+
+            except discord.LoginFailure:
                 logger.error(f"[账号 {index}] ✗ 登录失败: Token 无效")
                 break  # Token 无效，不再重试
 
