@@ -146,6 +146,9 @@ class UserListener:
         elif message.channel.id in [1335234038365163531,1387251242341761136]:
             await self.procDiamondHandsAndComments(message)
             return
+        elif message.channel.id in [1064717305902268446]:
+            await self.procPFJournal(message)
+            return
         
         elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003, 1467778640132575369]:
             await self.procproFessorrChannel(message)
@@ -273,6 +276,14 @@ class UserListener:
 
         # 移除角色提及标记 <@&任意字符>，支持多个
         content = re.sub(r'<@&[^>]+>', '', content)
+
+        # 替换源服务器频道链接为目标服务器频道链接
+        _CHANNEL_LINK_MAP = {
+            'https://discord.com/channels/1029054942419374192/1084536050522804354': 'https://discord.com/channels/1321092503721611335/1430131197979394168',
+            'https://discord.com/channels/1029054942419374192/1440354561712721941': 'https://discord.com/channels/1321092503721611335/1444864183706456286',
+        }
+        for src, dst in _CHANNEL_LINK_MAP.items():
+            content = content.replace(src, dst)
 
         return content
 
@@ -641,6 +652,24 @@ class UserListener:
             self.logger.error(f"调用webhook异常: {e}", exc_info=True)
             return False
 
+    async def procPFJournal(self, message):
+        content = await self.procContent(message.content)
+
+        if not content:
+            self.logger.debug("过滤后内容为空，跳过发送")
+            return
+        
+        target_id = "1321092503721611335/1491631594711158854"
+
+        payload = {
+            "sender": "professorr",
+            "target_id": target_id,
+            "content": content,
+            "attachments": [att.url for att in message.attachments]
+        }
+
+        # 发送到MQTT
+        self._send_mqtt_message(payload)
 
     async def procCommentary(self, message):
         """处理Commentary频道的特殊逻辑

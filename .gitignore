@@ -2,4 +2,4 @@
 */emqxsl-ca.crt
 */__pycache__
 
-useronline.log
+*.log
