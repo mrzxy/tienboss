@@ -149,8 +149,11 @@ class UserListener:
         elif message.channel.id in [1064717305902268446]:
             await self.procPFJournal(message)
             return
+        elif message.channel.id in [1467778640132575369]:
+            await self.procTest(message)
+            return
         
-        elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003, 1467778640132575369]:
+        elif message.channel.id in [1029055168425246761, 1409620660946337972, 1029105372797096068, 1440354561712721941, 1084536050522804354, 1377288801235239003]:
             await self.procproFessorrChannel(message)
             return
 
@@ -251,10 +254,11 @@ class UserListener:
         # 可以在这里添加更多处理逻辑
         # await self.on_message_received(info)
     async def procTest(self, message):
+        content = await self.procContent(message.content)
         payload = {
             "sender": "paul",
             "target_id": "1321313424717774949/1466080854274080818",
-            "content": message.content,
+            "content": content,
             "attachments": [att.url for att in message.attachments]
         }
 
@@ -279,8 +283,9 @@ class UserListener:
 
         # 替换源服务器频道链接为目标服务器频道链接
         _CHANNEL_LINK_MAP = {
-            'https://discord.com/channels/1029054942419374192/1084536050522804354': 'https://discord.com/channels/1321092503721611335/1430131197979394168',
-            'https://discord.com/channels/1029054942419374192/1440354561712721941': 'https://discord.com/channels/1321092503721611335/1444864183706456286',
+            '1084536050522804354': '1430131197979394168',
+            '1440354561712721941': '1444864183706456286',
+            '1433698963478937650': '1458044545185873931',
         }
         for src, dst in _CHANNEL_LINK_MAP.items():
             content = content.replace(src, dst)
@@ -670,6 +675,7 @@ class UserListener:
 
         # 发送到MQTT
         self._send_mqtt_message(payload)
+
 
     async def procCommentary(self, message):
         """处理Commentary频道的特殊逻辑

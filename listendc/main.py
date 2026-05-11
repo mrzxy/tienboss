@@ -217,7 +217,7 @@ class Application:
 
             self.logger.info(
                 f"User监听器已创建: {account_name} ({account_id}), "
-                f"监听 {len(channels)} 个频道"
+                f"监听 {len(channels)} 个频道: {channels}"
             )
 
         if listener_count == 0:
