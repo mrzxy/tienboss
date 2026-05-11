@@ -94,6 +94,7 @@ class UserListener:
             # if message.author == self.client.user:
             #     return
 
+
             # 只处理指定频道的消息
             if str(message.channel.id) not in self.channels:
                 return
@@ -146,7 +147,9 @@ class UserListener:
         elif message.channel.id in [1335234038365163531,1387251242341761136]:
             await self.procDiamondHandsAndComments(message)
             return
-        elif message.channel.id in [1064717305902268446]:
+        
+        # 1458044545185873931 我的
+        elif message.channel.id in [1064717305902268446,  1458044545185873931]:
             await self.procPFJournal(message)
             return
         elif message.channel.id in [1467778640132575369]:
@@ -664,10 +667,15 @@ class UserListener:
             self.logger.debug("过滤后内容为空，跳过发送")
             return
         
+        sender = "professorr"
         target_id = "1321092503721611335/1491631594711158854"
+        if message.channel.id == 1458044545185873931:
+            target_id = '1321313424717774949/1466080854274080818'
+            sender = "paul"
+
 
         payload = {
-            "sender": "professorr",
+            "sender": sender,
             "target_id": target_id,
             "content": content,
             "attachments": [att.url for att in message.attachments]
