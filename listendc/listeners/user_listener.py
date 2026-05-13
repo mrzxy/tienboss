@@ -194,9 +194,14 @@ class UserListener:
         isSendX = False
         if message.channel.id in [1440354561712721941, 1409620660946337972, 1029105372797096068]:
 
-          
+            prompt = """
+                保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 
+                以及必须遵守以下要求:
+                    1.不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。
+                    2.以及原文中包含"<@&{id}>"的内容时保持原样，不需要翻译。样例:<@&1288011122103943201>
+            """
             # 转成中文
-            trans = await self.fetch_anthropic_api(content, "保持原文的格式，然后用通俗易懂的中文替代原文内容，尽量把内容说的像个正常的中国人，语气不要太严肃，像个机器人，但同时也要像一个专业的基金经理。 不要出现任何有关带“翻译”俩字的提示，也不要给任何提示。", 'claude-sonnet-4-6')
+            trans = await self.fetch_anthropic_api(content, prompt, 'claude-sonnet-4-6')
             if not trans.get('success'):
                 self.logger.error(f"翻译失败: {content}, err: {trans.get('msg', 'Unknown error')}")
                 return
@@ -281,15 +286,21 @@ class UserListener:
         if not content:
             return content
 
-        # 移除角色提及标记 <@&任意字符>，支持多个
-        content = re.sub(r'<@&[^>]+>', '', content)
-
         # 替换源服务器频道链接为目标服务器频道链接
         _CHANNEL_LINK_MAP = {
             '1084536050522804354': '1430131197979394168',
             '1440354561712721941': '1444864183706456286',
             '1433698963478937650': '1458044545185873931',
         }
+
+        # <@&{id}> 是 map 的 key 或 value 时保留，否则删除
+        _channel_ids = set(_CHANNEL_LINK_MAP.keys()) | set(_CHANNEL_LINK_MAP.values())
+        content = re.sub(
+            r'<@&([^>]+)>',
+            lambda m: m.group(0) if m.group(1) in _channel_ids else '',
+            content
+        )
+
         for src, dst in _CHANNEL_LINK_MAP.items():
             content = content.replace(src, dst)
 
@@ -492,7 +503,7 @@ class UserListener:
         try:
             self.logger.debug(f'Sending request to Anthropic API')
 
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(trust_env=True) as session:
                 async with session.post(
                     api_url,
                     headers={
@@ -596,7 +607,7 @@ class UserListener:
         try:
             self.logger.debug(f'Sending request to Anthropic API for Chinese translation')
 
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(trust_env=True) as session:
                 async with session.post(
                     api_url,
                     headers={
@@ -648,7 +659,7 @@ class UserListener:
         """
         try:
             import aiohttp
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(trust_env=True) as session:
                 async with session.post(url, json=data) as resp:
                     if resp.status in [200, 204]:
                         self.logger.debug(f"Webhook调用成功: {resp.status}")
