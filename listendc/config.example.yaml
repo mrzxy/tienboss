@@ -72,3 +72,14 @@ tencent:
   secret_id: YOUR_TENCENTCLOUD_SECRET_ID
   secret_key: YOUR_TENCENTCLOUD_SECRET_KEY
   ocr_region: ap-singapore
+
+# 阿里云 OSS 配置（裁剪后的图片上传到此处并返回公网 URL）
+oss:
+  access_key_id: YOUR_OSS_ACCESS_KEY_ID
+  access_key_secret: YOUR_OSS_ACCESS_KEY_SECRET
+  endpoint: oss-ap-southeast-1.aliyuncs.com   # 地域节点
+  bucket: tine                                # Bucket 名称
+  # 绑定了 CNAME 自定义域名时填写（对象 URL = public_base_url/<key>）；
+  # 不填则使用 https://{bucket}.{endpoint}
+  public_base_url: https://tine.oss-ap-southeast-1.aliyuncs.com
+  prefix: discord/                            # 对象 key 前缀

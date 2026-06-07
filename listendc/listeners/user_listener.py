@@ -8,10 +8,13 @@ import json
 import logging
 import re
 import sqlite3
+import asyncio
 import aiohttp
+import cv2
 from datetime import datetime
 from utils.helpers import find_avatar_in_chat,download_image
 from utils.ocr_client import OcrClient
+from utils.oss_client import OssClient
 try:
     import discord
 except ImportError:
@@ -25,10 +28,13 @@ except ImportError:
 import os
 
 oc_client = OcrClient.from_config()
+oss_client = OssClient.from_config()
 
 STATIC_DIR  = os.path.join(os.path.dirname(__file__), '..', 'static')
 AVATAR_PATH = os.path.normpath(os.path.join(STATIC_DIR, 'thumb.png'))
 
+# 裁掉聊天截图顶部的像素数（去掉发送者头像/用户名那一行），按需调整
+CROP_TOP_PX = 20
 class UserListener:
     """User Token监听器 - 用于监听其他频道"""
 
@@ -187,7 +193,7 @@ class UserListener:
         if message.channel.id not in forwordMap:
             return
 
-        attachments = await self.proc_attachments(message.attachments)
+        attachments = await self.proc_attachments(message.channel.id, message.attachments)
     
 
         # 转成中文
@@ -214,7 +220,7 @@ class UserListener:
             "target_id": forwordMap[message.channel.id],
             "content": content,
             "discord_msg_id": str(message.id),
-            "attachments": [att.url for att in attachments]
+            "attachments": attachments
         }
 
         if message.reference and message.reference.message_id:
@@ -235,12 +241,19 @@ class UserListener:
             self._send_mqtt_message({
                 "user_name": "professorr_pvt",
                 "text": content,
-                "files": [att.url for att in attachments]
+                "files": attachments
             }, "/x/post")
 
-    async def proc_attachments(self, attachments):
+    async def proc_attachments(self, channel_id, attachments):
+        """处理图片附件，返回最终要转发的图片 URL 列表
+
+        Returns:
+            list[str]: 图片 URL（未裁剪的为原始 URL，裁剪过的为重新上传后的 CDN URL）
+        """
         if len(attachments) < 1:
             return []
+        # 这些频道需要裁掉图片顶部后重新上传，替换原图
+        crop_channels = {1029105372797096068, 1409620660946337972, 1440354561712721941, 1084536050522804354}
         res = []
         # 检查图片是否包含
         for v in attachments:
@@ -252,22 +265,76 @@ class UserListener:
                 #使用文字ocr
                 if oc_client.contains_prof(data):
                     continue
-                res.append(v)
+
+                if channel_id in crop_channels:
+                    new_url = await self._crop_top_and_reupload(data, v.filename)
+                    # 裁剪/上传成功用新图，失败则回退到原图
+                    res.append(new_url or v.url)
+                    continue
+
+                res.append(v.url)
             except Exception as e:
                 self.logger.error(f'图片匹配头像 Error: {e}', exc_info=True)
                 continue
 
         return res
 
+    async def _crop_top_and_reupload(self, data, filename='image.png'):
+        """裁掉图片顶部 CROP_TOP_PX 像素后上传到阿里云 OSS，返回新的公网 URL
+
+        Args:
+            data: download_image 返回的 np.uint8 一维数组
+            filename: 原始文件名（仅用于日志）
+
+        Returns:
+            str | None: 上传成功返回新 URL，失败返回 None（由调用方回退到原图）
+        """
+        img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
+        if img is None:
+            self.logger.warning("裁剪失败：无法解码图片")
+            return None
+
+        h = img.shape[0]
+        crop = min(CROP_TOP_PX, max(0, h - 1))
+        cropped = img[crop:, :]
+        ok, buf = cv2.imencode('.png', cropped)
+        if not ok:
+            self.logger.warning("裁剪失败：无法编码图片")
+            return None
+
+        try:
+            # oss2 是同步 SDK，放到线程池避免阻塞事件循环
+            loop = asyncio.get_event_loop()
+            url = await loop.run_in_executor(
+                None,
+                lambda: oss_client.upload_bytes(buf.tobytes(), 'png', 'image/png')
+            )
+            self.logger.info(f"裁剪后图片已上传 OSS: {url}")
+            return url
+        except Exception as e:
+            self.logger.error(f"上传裁剪图片到 OSS 异常: {e}", exc_info=True)
+            return None
+
         # 可以在这里添加更多处理逻辑
         # await self.on_message_received(info)
     async def procTest(self, message):
         content = await self.procContent(message.content)
+        res = []
+        for v in message.attachments:
+            try:
+                data = download_image(v.url)
+                new_url = await self._crop_top_and_reupload(data, v.filename)
+                # 裁剪/上传成功用新图，失败则回退到原图
+                res.append(new_url or v.url)
+            except Exception as e:
+                self.logger.error(f'图片匹配头像 Error: {e}', exc_info=True)
+                continue
+
         payload = {
             "sender": "paul",
             "target_id": "1321313424717774949/1466080854274080818",
             "content": content,
-            "attachments": [att.url for att in message.attachments]
+            "attachments": res,
         }
 
         # 发送到MQTT
@@ -678,6 +745,17 @@ class UserListener:
             self.logger.debug("过滤后内容为空，跳过发送")
             return
         
+        res = []
+        for v in message.attachments:
+            try:
+                data = download_image(v.url)
+                new_url = await self._crop_top_and_reupload(data, v.filename)
+                # 裁剪/上传成功用新图，失败则回退到原图
+                res.append(new_url or v.url)
+            except Exception as e:
+                self.logger.error(f'图片匹配头像 Error: {e}', exc_info=True)
+                continue
+
         sender = "professorr"
         target_id = "1321092503721611335/1491631594711158854"
         if message.channel.id == 1458044545185873931:
@@ -689,7 +767,7 @@ class UserListener:
             "sender": sender,
             "target_id": target_id,
             "content": content,
-            "attachments": [att.url for att in message.attachments]
+            "attachments": res,
         }
 
         # 发送到MQTT
