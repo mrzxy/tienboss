@@ -34,7 +34,7 @@ STATIC_DIR  = os.path.join(os.path.dirname(__file__), '..', 'static')
 AVATAR_PATH = os.path.normpath(os.path.join(STATIC_DIR, 'thumb.png'))
 
 # 裁掉聊天截图顶部的像素数（去掉发送者头像/用户名那一行），按需调整
-CROP_TOP_PX = 20
+CROP_TOP_PX = 44
 class UserListener:
     """User Token监听器 - 用于监听其他频道"""
 
