@@ -88,7 +88,7 @@ async def main():
         await cluster_manager.graceful_shutdown()
     except Exception as e:
         logger.error(f"主程序出错: {e}")
-        traceback.print_exception(e)
+        traceback.print_exc()
         await cluster_manager.graceful_shutdown()
 
 if __name__ == '__main__':
