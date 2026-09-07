@@ -7,6 +7,7 @@ import json
 from chat import send_chat_request, send_msg_by_webhook, send_msg_by_mqtt, extract_image_urls
 from config import get_config
 from helper import print_message_details,get_logger
+import traceback
 from bot import MasterBot, BotClusterManager, BotConfig
 
 # 加载配置
@@ -87,12 +88,12 @@ async def main():
         await cluster_manager.graceful_shutdown()
     except Exception as e:
         logger.error(f"主程序出错: {e}")
+        traceback.print_exception(e)
         await cluster_manager.graceful_shutdown()
 
 if __name__ == '__main__':
     # 运行机器人
     try:
-
         # 连接MQTT
         if client.connect():
             logger.info("MQTT连接成功")

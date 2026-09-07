@@ -4,7 +4,7 @@ from discord.ext import commands, tasks
 import asyncio
 import random
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 import aiohttp
 import json
 from dataclasses import dataclass
@@ -29,6 +29,7 @@ class BotConfig:
 
 class MasterBot:
     def __init__(self, master_token: str, worker_configs: List[BotConfig]):
+        self.proxy_url = app_config.get_proxy_url()
         # 只使用必要的intents，避免需要特权访问
         intents = discord.Intents.default()
         intents.message_content = True  # 读取消息内容
@@ -39,7 +40,8 @@ class MasterBot:
         self.master_bot = commands.Bot(
             command_prefix='!',
             intents=intents,
-            help_command=None
+            help_command=None,
+            proxy=self.proxy_url
         )
         self.master_token = master_token
         self.worker_configs = worker_configs
@@ -104,12 +106,12 @@ class MasterBot:
         logger.info("正在初始化工作Bot集群...")
         
         # 创建aiohttp会话
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(trust_env=True)
         
         # 为每个工作Bot创建实例
         for config in self.worker_configs:
             if config.enabled:
-                worker = WorkerBot(config, self.session)
+                worker = WorkerBot(config, self.session, self.proxy_url)
                 self.workers.append(worker)
                 logger.info(f'已初始化工作Bot: {config.name}')
         
@@ -289,9 +291,10 @@ class BotClusterManager:
         logger.info("Bot集群已关闭")
 
 class WorkerBot:
-    def __init__(self, config: BotConfig, session: aiohttp.ClientSession):
+    def __init__(self, config: BotConfig, session: aiohttp.ClientSession, proxy_url: Optional[str] = None):
         self.config = config
         self.session = session
+        self.proxy_url = proxy_url
         self.headers = {
             'Authorization': f'{config.token}',
             'Content-Type': 'application/json',
@@ -334,7 +337,7 @@ class WorkerBot:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{encoded_emoji}/@me"
         
         try:
-            async with self.session.put(url, headers=self.headers) as response:
+            async with self.session.put(url, headers=self.headers, proxy=self.proxy_url) as response:
                 if response.status == 204:
                     return True
                 elif response.status == 429:
@@ -346,7 +349,7 @@ class WorkerBot:
                 else:
                     error_text = await response.text()
                     logger.error(f'API错误 {response.status}: {error_text}')
-                    logger.error(f'token:{self.config.token}')
+                    logger.error(f'token:{self.config.token[:8]}...{self.config.token[-4:]}')
                     return False
                     
         except aiohttp.ClientError as e:
@@ -365,7 +368,7 @@ class WorkerBot:
         }
         
         try:
-            async with self.session.get(url, headers=user_headers) as response:
+            async with self.session.get(url, headers=user_headers, proxy=self.proxy_url) as response:
                 return response.status == 200
         except:
             return False
@@ -384,7 +387,8 @@ async def batch_test_tokens(tokens: List[str]) -> Dict[str, bool]:
     url = "https://discord.com/api/v10/users/@me"
     results = {}
     
-    async with aiohttp.ClientSession() as session:
+    proxy_url = app_config.get_proxy_url()
+    async with aiohttp.ClientSession(trust_env=True) as session:
         for i, token in enumerate(tokens):
             if i==0:
                 continue
@@ -395,7 +399,7 @@ async def batch_test_tokens(tokens: List[str]) -> Dict[str, bool]:
             }
             
             try:
-                async with session.get(url, headers=headers) as response:
+                async with session.get(url, headers=headers, proxy=proxy_url) as response:
                     is_valid = response.status == 200
                     if is_valid:
                         data = await response.json()
@@ -460,7 +464,8 @@ async def batch_add_reaction(channel_id: int, message_id: int, emoji: str = '�
     
     logger.info(f"开始用 {len(tokens)} 个账号给消息 {message_id} 点赞...")
     
-    async with aiohttp.ClientSession() as session:
+    proxy_url = app_config.get_proxy_url()
+    async with aiohttp.ClientSession(trust_env=True) as session:
         for i, token in enumerate(tokens):
             if i == 0:
                 continue
@@ -472,7 +477,7 @@ async def batch_add_reaction(channel_id: int, message_id: int, emoji: str = '�
             }
             
             try:
-                async with session.put(url, headers=headers) as response:
+                async with session.put(url, headers=headers, proxy=proxy_url) as response:
                     if response.status == 204:
                         success_count += 1
                         logger.info(f'✅ Token {i+1}: 点赞成功')
@@ -481,7 +486,7 @@ async def batch_add_reaction(channel_id: int, message_id: int, emoji: str = '�
                         logger.warning(f'⚠️ Token {i+1}: 速率限制，等待 {retry_after} 秒')
                         await asyncio.sleep(retry_after)
                         # 重试
-                        async with session.put(url, headers=headers) as retry_resp:
+                        async with session.put(url, headers=headers, proxy=proxy_url) as retry_resp:
                             if retry_resp.status == 204:
                                 success_count += 1
                                 logger.info(f'✅ Token {i+1}: 重试点赞成功')
